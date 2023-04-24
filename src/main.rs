@@ -1,47 +1,45 @@
-// Count the number of nodes, ways and relations in a PBF file given as the
-// first command line argument.
-
-use osmpbf::*;
+use osmpbf::{Element, IndexedReader};
+use std::error::Error;
 use std::time::{SystemTime};
 
-fn main() {
-
-    let now = SystemTime::now();
-
+fn main() -> Result<(), Box<dyn Error>> {
+    // Read command line argument and create IndexedReader
     let arg = std::env::args_os()
         .nth(1)
-        .expect("need a *.osm.pbf file as argument");
-    let path = std::path::Path::new(&arg);
-    let reader = ElementReader::from_path(path).unwrap();
+        .ok_or("need a *.osm.pbf file as argument")?;
+    let mut reader = IndexedReader::from_path(&arg)?;
 
+    let now = SystemTime::now();
     println!("Counting...");
+    let mut ways = 0;
+    let mut nodes = 0;
 
-    match reader.par_map_reduce(
-        |element| match element {
-            Element::Node(_) | Element::DenseNode(_) => (1, 0, 0),
-            Element::Way(_) => (0, 1, 0),
-            Element::Relation(_) => (0, 0, 1),
+    reader.read_ways_and_deps(
+        |way| {
+            // Filter ways. Return true if tags contain "building": "yes".
+            way.tags().any(|key_value| key_value == ("natural", "coastline"))
         },
-        || (0u64, 0u64, 0u64),
-        |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
-    ) {
-        Ok((nodes, ways, relations)) => {
-            println!("Nodes: {nodes}");
-            println!("Ways: {ways}");
-            println!("Relations: {relations}");
+        |element| {
+            // Increment counter for ways and nodes
+            match element {
+                Element::Way(_way) => ways += 1,
+                Element::Node(_node) => nodes += 1,
+                Element::DenseNode(_dense_node) => nodes += 1,
+                Element::Relation(_) => {} // should not occur
+            }
+        },
+    )?;
+
+    println!("ways:  {}\nnodes: {}", ways, nodes);
+
+    match now.elapsed() {
+        Ok(elapsed) => {
+            println!("{}", elapsed.as_secs());
         }
         Err(e) => {
-            println!("{e}");
-            std::process::exit(1);
+            println!("Error: {e:?}");
         }
     }
 
-   match now.elapsed() {
-       Ok(elapsed) => {
-           println!("{}", elapsed.as_secs());
-       }
-       Err(e) => {
-           println!("Error: {e:?}");
-       }
-   }
+    Ok(())
 }
