@@ -3,7 +3,7 @@ use std::{ffi::OsString, collections::{HashSet}};
 
 pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<(f64, f64)> {
     let reader = ElementReader::from_path(path);
-    let waypoint_refs = par_coastline_as_refs(path);
+    let waypoint_refs: Vec<i64> = coastline_as_refs_parallel(path);
     let node_set: HashSet<i64> = waypoint_refs.into_iter().collect();
 
     match reader.unwrap().par_map_reduce(
@@ -34,7 +34,7 @@ pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<(f64, f64)> {
     };
 }
 
-fn par_coastline_as_refs(path: &OsString) -> Vec<i64> {
+fn coastline_as_refs_parallel(path: &OsString) -> Vec<i64> {
     let reader = ElementReader::from_path(path);
 
     match reader.unwrap().par_map_reduce(
@@ -54,7 +54,7 @@ fn par_coastline_as_refs(path: &OsString) -> Vec<i64> {
         |mut a, mut b| {
             a.append(&mut b);
             a
-        }   // Sum the partial results
+        }
     ) {
         Ok(ways) => return ways.to_vec(),
         Err(e) => {
@@ -65,34 +65,29 @@ fn par_coastline_as_refs(path: &OsString) -> Vec<i64> {
 }
 
 #[allow(dead_code)]
-pub fn waypoints_coastline_lib(path: &OsString) -> (i32, i32) {
-    let mut ways = 0;
-    let mut nodes = 0;
+pub fn waypoints_coastline_lib(path: &OsString) -> Vec<(f64, f64)> {
+    let mut nodes: Vec<(f64, f64)> = vec![];
 
     let mut reader = IndexedReader::from_path(path).unwrap();
 
     match reader.read_ways_and_deps(
         |way| {
             // Filter ways. Return true if tags contain "building": "yes".
-            way.tags().any(|key_value| key_value == ("natural", "coastline"));
-            true
+            way.tags().any(|key_value| key_value == ("natural", "coastline"))
         },
         |element| {
             // Increment counter for ways and nodes
             match element {
-                Element::Way(_way) => {
-                    ways += 1
-                },
-                Element::Node(_node) => nodes += 1,
-                Element::DenseNode(_dense_node) => nodes += 1,
-                Element::Relation(_) => {} // should not occur
+                Element::Node(node) => nodes.push((node.lat(), node.lon())),
+                Element::DenseNode(dense_node) => nodes.push((dense_node.lat(), dense_node.lon())),
+                _ => {}
             }
         },
     ) {
-        Ok(()) => return (nodes, ways),
+        Ok(()) => return nodes,
         Err(e) => {
             println!("{}", e.to_string());
-            return (0,0)
+            return vec![]
         }
     };
 }

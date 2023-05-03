@@ -13,13 +13,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 
     let now = SystemTime::now();
-    println!("Importing...");
+    println!("Importing pbf file...");
 
     let coastline = waypoints_coastline_parallel(&arg);
     println!("coastline:  {}", coastline.len());
 
     match now.elapsed() {
-        Ok(elapsed) => {println!("Import and filter time: {}", elapsed.as_secs());}
+        Ok(elapsed) => {println!("Import and filter time: {}sek", elapsed.as_secs());}
         Err(e) => {println!("Error: {e:?}");}
     }
 
