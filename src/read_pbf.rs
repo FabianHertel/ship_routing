@@ -6,11 +6,11 @@ use std::{ffi::OsString, collections::{HashSet, HashMap}};
 pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<Vec<Vec<f64>>> {
     let waypoint_refs: HashSet<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
     let coordinates = coordinates_of_points(path, &waypoint_refs);
-    
+
     waypoint_refs.into_iter().map(|way| way.into_iter().map(|point_ref| {
         let coordinates = coordinates.get(&point_ref).unwrap();
         vec![coordinates.0, coordinates.1]
-    }).collect()).collect()
+    }).collect()).collect()     // merge ways with coordinates and convert coordinates to vector
 }
 
 /* read coordinates of point ids from ways as vectors
@@ -27,7 +27,7 @@ fn coordinates_of_points(path: &OsString, ways: &HashSet<Vec<i64>>) -> HashMap<i
             match element {
                 Element::DenseNode(node) => {
                     if node_set.contains(&node.id) {    // add coordinates to loop vector which will be returned
-                        HashMap::from([(node.id, (node.lat(), node.lon()))])
+                        HashMap::from([(node.id, (node.lon(), node.lat()))])
                     } else {
                         HashMap::new()
                     }
@@ -95,8 +95,8 @@ pub fn waypoints_coastline_lib(path: &OsString) -> Vec<(f64, f64)> {
         |element| {
             // add nodes to list
             match element {
-                Element::Node(node) => nodes.push((node.lat(), node.lon())),
-                Element::DenseNode(dense_node) => nodes.push((dense_node.lat(), dense_node.lon())),
+                Element::Node(node) => nodes.push((node.lon(), node.lat())),
+                Element::DenseNode(dense_node) => nodes.push((dense_node.lon(), dense_node.lat())),
                 _ => {}
             }
         },
