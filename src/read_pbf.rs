@@ -1,36 +1,46 @@
 use osmpbf::{Element, ElementReader, IndexedReader};
-use std::{ffi::OsString, collections::HashSet};
+use std::{ffi::OsString, collections::{HashSet, HashMap}};
 
 /* filters ways for tag coastline and then searches for coordinates of referenced nodes
  */
-pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<(f64, f64)> {
+pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<Vec<(f64, f64)>> {
+    let waypoint_refs: HashSet<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
+    let coordinates = coordinates_of_points(path, &waypoint_refs);
+    waypoint_refs.into_iter().map(|way| way.into_iter().map(|point_ref| coordinates.get(&point_ref).unwrap().to_owned()).collect()).collect()
+}
+
+/* read coordinates of point ids from ways as vectors
+ */
+fn coordinates_of_points(path: &OsString, ways: &HashSet<Vec<i64>>) -> HashMap<i64, (f64, f64)> {
     let reader = ElementReader::from_path(path);
-    let waypoint_refs: Vec<i64> = coastline_as_refs_parallel(path);     //filter ways
-    let node_set: HashSet<i64> = waypoint_refs.into_iter().collect();   //refs of nodes into HashSet
+    let node_set: HashSet<i64> = ways.to_owned().into_iter().reduce(|mut way_a, mut way_b| {
+        way_a.append(&mut way_b);
+        return way_a
+    }).unwrap().into_iter().collect();   //refs of nodes into HashSet
 
     match reader.unwrap().par_map_reduce(
         |element| {
             match element {
                 Element::DenseNode(node) => {
                     if node_set.contains(&node.id) {    // add coordinates to loop vector which will be returned
-                        vec![(node.lat(), node.lon())]
+                        HashMap::from([(node.id, (node.lat(), node.lon()))])
                     } else {
-                        vec![]
+                        HashMap::new()
                     }
                 },
-                _ => vec![],
+                _ => HashMap::new(),
             }
         },
-        || [].to_vec(),      // initial empty vector
-        |mut a, mut b| {
-            a.append(&mut b);         // merge vectors of parallel operations
-            return a
+        || HashMap::new(),      // initial empty vector
+        |mut a, b| {
+            a.extend(b);         // merge vectors of parallel operations
+            return a;
         }
     ) {
-        Ok(ways) => return ways,
+        Ok(ways) => return ways.to_owned(),
         Err(e) => {
             println!("{}", e.to_string());
-            return vec![]
+            return HashMap::new()
         }
     };
 }
@@ -38,7 +48,7 @@ pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<(f64, f64)> {
 /* filters for the ways with tag coastline
 returns: list of references to nodes
  */
-fn coastline_as_refs_parallel(path: &OsString) -> Vec<i64> {
+fn coastline_as_refs_parallel(path: &OsString) -> HashSet<Vec<i64>> {
     let reader = ElementReader::from_path(path);
 
     match reader.unwrap().par_map_reduce(
@@ -46,24 +56,24 @@ fn coastline_as_refs_parallel(path: &OsString) -> Vec<i64> {
             match element {
                 Element::Way(way) => {
                     if way.tags().any(|key_value| key_value == ("natural", "coastline")) {
-                        way.refs().collect()
+                        HashSet::from([way.refs().collect()])
                     } else {
-                        vec![]
+                        HashSet::new()
                     }
                 },
-                _ => vec![],
+                _ => HashSet::new(),
             }
         },
-        || [].to_vec(),      // Zero is the identity value for addition
-        |mut a, mut b| {
-            a.append(&mut b);
+        || HashSet::new(),      // Zero is the identity value for addition
+        |mut a, b| {
+            a.extend(b);
             return a
         }
     ) {
-        Ok(ways) => return ways.to_vec(),
+        Ok(ways) => return ways,
         Err(e) => {
             println!("{}", e.to_string());
-            return vec![]
+            return HashSet::new()
         }
     };
 }
