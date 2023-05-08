@@ -10,3 +10,4 @@ edition = "2021"    # rust edition
 
 [dependencies]
 osmpbf = "0.2"
+geojson ="*"

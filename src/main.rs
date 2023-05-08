@@ -1,5 +1,7 @@
 use std::error::Error;
 use std::time::{SystemTime};
+use geojson::{GeoJson, Geometry, Value, Feature};
+use std::fs;
 
 mod read_pbf;
 
@@ -17,6 +19,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let coastline = waypoints_coastline_parallel(&arg);
     println!("coastline:  {}", coastline.len());
+
+    let geometry = Geometry::new(Value::MultiLineString(coastline));
+
+    fs::write("./geojson.json", geometry.to_string()).expect("Unable to write file");
 
     match now.elapsed() {
         Ok(elapsed) => {println!("Import and filter time: {}sek", elapsed.as_secs());}
