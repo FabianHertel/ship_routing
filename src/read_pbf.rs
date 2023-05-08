@@ -5,7 +5,9 @@ use std::{ffi::OsString, collections::{HashSet, HashMap}};
  */
 pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<Vec<Vec<f64>>> {
     let waypoint_refs: HashSet<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
+    println!("Finished first read: ways with references in HashSet");
     let coordinates = coordinates_of_points(path, &waypoint_refs);
+    println!("Finished second read: coordinates of all referenced points in HashMap");
 
     waypoint_refs.into_iter().map(|way| way.into_iter().map(|point_ref| {
         let coordinates = coordinates.get(&point_ref).unwrap();
