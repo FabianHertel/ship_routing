@@ -3,10 +3,14 @@ use std::{ffi::OsString, collections::{HashSet, HashMap}};
 
 /* filters ways for tag coastline and then searches for coordinates of referenced nodes
  */
-pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<Vec<(f64, f64)>> {
+pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<Vec<Vec<f64>>> {
     let waypoint_refs: HashSet<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
     let coordinates = coordinates_of_points(path, &waypoint_refs);
-    waypoint_refs.into_iter().map(|way| way.into_iter().map(|point_ref| coordinates.get(&point_ref).unwrap().to_owned()).collect()).collect()
+    
+    waypoint_refs.into_iter().map(|way| way.into_iter().map(|point_ref| {
+        let coordinates = coordinates.get(&point_ref).unwrap();
+        vec![coordinates.0, coordinates.1]
+    }).collect()).collect()
 }
 
 /* read coordinates of point ids from ways as vectors
