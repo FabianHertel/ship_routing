@@ -1,15 +1,22 @@
 use osmpbf::{Element, ElementReader, IndexedReader};
-use std::{ffi::OsString, collections::{HashSet, HashMap}};
+use std::{ffi::OsString, collections::{HashSet, HashMap}, time::SystemTime};
+
 
 /* filters ways for tag coastline and then searches for coordinates of referenced nodes
  */
 pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<Vec<Vec<f64>>> {
-    let waypoint_refs: HashSet<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
+    let waypoint_refs: Vec<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
     println!("Finished first read: ways with references in HashSet");
-    let coordinates = coordinates_of_points(path, &waypoint_refs);
+
+    let now = SystemTime::now();
+    println!("Connecting coastlines...");
+    let coastline = connect_coastlines(waypoint_refs);
+    println!("Time to connect coastlines: {}sek", now.elapsed().unwrap().as_secs());
+
+    let coordinates = coordinates_of_points(path, &coastline);
     println!("Finished second read: coordinates of all referenced points in HashMap");
 
-    waypoint_refs.into_iter().map(|way| way.into_iter().map(|point_ref| {
+    coastline.into_iter().map(|way| way.into_iter().map(|point_ref| {
         let coordinates = coordinates.get(&point_ref).unwrap();
         vec![coordinates.0, coordinates.1]
     }).collect()).collect()     // merge ways with coordinates and convert coordinates to vector
@@ -17,7 +24,7 @@ pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<Vec<Vec<f64>>> {
 
 /* read coordinates of point ids from ways as vectors
  */
-fn coordinates_of_points(path: &OsString, ways: &HashSet<Vec<i64>>) -> HashMap<i64, (f64, f64)> {
+fn coordinates_of_points(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f64, f64)> {
     let reader = ElementReader::from_path(path);
     let node_set: HashSet<i64> = ways.to_owned().into_iter().reduce(|mut way_a, mut way_b| {
         way_a.append(&mut way_b);
@@ -54,7 +61,7 @@ fn coordinates_of_points(path: &OsString, ways: &HashSet<Vec<i64>>) -> HashMap<i
 /* filters for the ways with tag coastline
 returns: list of references to nodes
  */
-fn coastline_as_refs_parallel(path: &OsString) -> HashSet<Vec<i64>> {
+fn coastline_as_refs_parallel(path: &OsString) -> Vec<Vec<i64>> {
     let reader = ElementReader::from_path(path);
 
     match reader.unwrap().par_map_reduce(
@@ -62,24 +69,30 @@ fn coastline_as_refs_parallel(path: &OsString) -> HashSet<Vec<i64>> {
             match element {
                 Element::Way(way) => {
                     if way.tags().any(|key_value| key_value == ("natural", "coastline")) {
-                        HashSet::from([way.refs().collect()])
+                        vec![way.refs().collect()]
                     } else {
-                        HashSet::new()
+                        vec![]
                     }
                 },
-                _ => HashSet::new(),
+                _ => vec![],
             }
         },
-        || HashSet::new(),      // Zero is the identity value for addition
-        |mut a, b| {
-            a.extend(b);
-            return a
+        || vec![],      // Zero is the identity value for addition
+        |mut a, mut b| {
+            if a.len() == 0 {
+                b
+            } else if b.len() == 0 {
+                a
+            } else {
+                b.append(&mut a);
+                b
+            }
         }
     ) {
         Ok(ways) => return ways,
         Err(e) => {
             println!("{}", e.to_string());
-            return HashSet::new()
+            return vec![]
         }
     };
 }
@@ -109,4 +122,49 @@ pub fn waypoints_coastline_lib(path: &OsString) -> Vec<(f64, f64)> {
             return vec![]
         }
     };
+}
+
+pub fn connect_coastlines(mut ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
+    let mut start_nodes: HashMap<i64, &Vec<i64>> = HashMap::new();
+    let mut end_nodes: HashMap<i64, &Vec<i64>> = HashMap::new();
+
+    let mut m_count = 0;
+    let mut n_count = 0;
+    let mut se_count = 0;
+    let mut es_count = 0;
+    let mut other_count = 0;
+
+    for i in 0..ways.len() {
+        let end_connection = start_nodes.remove(&ways[i][ways[i].len()-1]);
+        let start_connection = end_nodes.remove(&ways[i][0]);
+
+        // should not occur
+        let start_start_connection = start_nodes.remove(&ways[i][0]);
+        let end_end_connection = end_nodes.remove(&ways[i][ways[i].len()-1]);
+        
+        let mut new_coastline: &Vec<i64> = &ways[i];
+
+        match (end_connection, start_connection, end_end_connection, start_start_connection) {
+            (Some(following_coastline), None, None, None) => {
+                se_count +=1;
+            }
+            (None, Some(leading_coastline), None, None) => {
+                es_count +=1;
+            }
+            (Some(following_coastline), Some(leading_coastline), None, None) => {
+                m_count +=1;
+            }
+            (None, None, None, None) => {
+                n_count +=1;
+            }
+            (_, _, _, _) => {
+                other_count +=1;
+                println!("Should not occur")
+            }
+        }
+        end_nodes.insert(*new_coastline.last().unwrap(), &new_coastline);
+        start_nodes.insert(*new_coastline.first().unwrap(), &new_coastline);
+    }
+    println!("Counts: {}, {}, {}, {}, {}", se_count, es_count, m_count, n_count, other_count);
+    return ways
 }
