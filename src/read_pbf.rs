@@ -125,16 +125,24 @@ pub fn waypoints_coastline_lib(path: &OsString) -> Vec<(f64, f64)> {
 }
 
 pub fn connect_coastlines(mut ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
-    let mut start_nodes: HashMap<i64, &Vec<i64>> = HashMap::new();
-    let mut end_nodes: HashMap<i64, &Vec<i64>> = HashMap::new();
+    let mut start_nodes: HashMap<i64, Vec<i64>> = HashMap::new();  // refers to incomplete_coastlines
+    let mut end_nodes: HashMap<i64, Vec<i64>> = HashMap::new();    // refers to incomplete_coastlines
+    let mut complete_coastlines: Vec<Vec<i64>> = vec![];    // contains only full coastlines, where the last point has the same id as the first
 
     let mut m_count = 0;
     let mut n_count = 0;
+    let mut c_count = 0;
     let mut se_count = 0;
     let mut es_count = 0;
+    let mut f_count = 0;
     let mut other_count = 0;
 
     for i in 0..ways.len() {
+        if ways[i][0].to_owned() == ways[i][ways[i].len().to_owned()-1].to_owned() {
+            complete_coastlines.push(ways[i].to_owned());
+            c_count += 1;
+            continue;
+        }
         let end_connection = start_nodes.remove(&ways[i][ways[i].len()-1]);
         let start_connection = end_nodes.remove(&ways[i][0]);
 
@@ -142,19 +150,34 @@ pub fn connect_coastlines(mut ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
         let start_start_connection = start_nodes.remove(&ways[i][0]);
         let end_end_connection = end_nodes.remove(&ways[i][ways[i].len()-1]);
         
-        let mut new_coastline: &Vec<i64> = &ways[i];
+        let mut new_coastline: Vec<i64> = vec![];
 
         match (end_connection, start_connection, end_end_connection, start_start_connection) {
-            (Some(following_coastline), None, None, None) => {
+            (Some(mut following_coastline), None, None, None) => {
+                new_coastline = ways[i].to_owned();
+                new_coastline.append(&mut following_coastline[1..].to_vec());
                 se_count +=1;
             }
             (None, Some(leading_coastline), None, None) => {
+                new_coastline = leading_coastline;
+                new_coastline.append(&mut ways[i][1..].to_vec());
                 es_count +=1;
             }
             (Some(following_coastline), Some(leading_coastline), None, None) => {
+                if following_coastline[0] == leading_coastline[0] {
+                    new_coastline = leading_coastline;
+                    new_coastline.append(&mut ways[i][1..].to_vec());
+                    complete_coastlines.push(new_coastline);
+                    f_count += 1;
+                    continue;
+                }
+                new_coastline = leading_coastline;
+                new_coastline.append(&mut ways[i][1..].to_vec());
+                new_coastline.append(&mut following_coastline[1..].to_vec());
                 m_count +=1;
             }
             (None, None, None, None) => {
+                new_coastline = ways[i].to_owned();
                 n_count +=1;
             }
             (_, _, _, _) => {
@@ -162,9 +185,11 @@ pub fn connect_coastlines(mut ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
                 println!("Should not occur")
             }
         }
-        end_nodes.insert(*new_coastline.last().unwrap(), &new_coastline);
-        start_nodes.insert(*new_coastline.first().unwrap(), &new_coastline);
+        if new_coastline.len() > 1 {
+            end_nodes.insert(*new_coastline.last().unwrap(), new_coastline.to_owned());
+            start_nodes.insert(*new_coastline.first().unwrap(),new_coastline);
+        }
     }
-    println!("Counts: {}, {}, {}, {}, {}", se_count, es_count, m_count, n_count, other_count);
-    return ways
+    println!("Counts: {}, {}, {}, {}, {}, {}, {}", se_count, es_count, m_count, n_count, c_count, f_count, other_count);
+    return complete_coastlines
 }
