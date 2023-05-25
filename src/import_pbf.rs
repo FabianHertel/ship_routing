@@ -1,25 +1,42 @@
 use osmpbf::{Element, ElementReader, IndexedReader};
-use std::{ffi::OsString, collections::{HashSet, HashMap}, time::SystemTime};
+use std::{ffi::OsString, collections::{HashSet, HashMap}, time::SystemTime, error::Error};
+use geojson::{Geometry, Value};
+use std::fs;
 
 
 /* filters ways for tag coastline and then searches for coordinates of referenced nodes
  */
-pub fn waypoints_coastline_parallel(path: &OsString) -> Vec<Vec<Vec<f64>>> {
-    let waypoint_refs: Vec<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
-    println!("Finished first read: ways with references in HashSet");
-
+pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
+    println!("1/4: Read and filter OSM ways with tag 'coastline'...");
     let now = SystemTime::now();
-    println!("Connecting coastlines...");
+    let waypoint_refs: Vec<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
+    println!("1/4: Ways with coastline tag:  {}", waypoint_refs.len());
+    println!("1/4: Finished in {}sek", now.elapsed()?.as_secs());
+
+    println!("2/4: Connecting coastlines...");
+    let now = SystemTime::now();
     let coastline = connect_coastlines(waypoint_refs);
-    println!("Time to connect coastlines: {}sek", now.elapsed().unwrap().as_secs());
+    println!("2/4: N of continents and islands:  {}", coastline.len());
+    println!("2/4: Finished in {}sek", now.elapsed()?.as_secs());
 
+    println!("3/4: Read coordinates of points and merge data...");
+    let now = SystemTime::now();
     let coordinates = coordinates_of_points(path, &coastline);
-    println!("Finished second read: coordinates of all referenced points in HashMap");
 
-    coastline.into_iter().map(|way| way.into_iter().map(|point_ref| {
+    let coastline_coordinates = coastline.into_iter().map(|way| way.into_iter().map(|point_ref| {
         let coordinates = coordinates.get(&point_ref).unwrap();
         vec![coordinates.0, coordinates.1]
-    }).collect()).collect()     // merge ways with coordinates and convert coordinates to vector
+    }).collect()).collect();     // merge ways with coordinates and convert coordinates to vector
+    println!("3/4: Finished in {}sek", now.elapsed()?.as_secs());
+    
+        
+    println!("4/4: Write GeoJSON ...");
+    let now = SystemTime::now();
+    let geometry = Geometry::new(Value::MultiLineString(coastline_coordinates));
+    fs::write("./geojson.json", geometry.to_string()).expect("Unable to write file");
+    println!("4/4: Finished in {}sek", now.elapsed()?.as_secs());
+
+    Ok(())
 }
 
 /* read coordinates of point ids from ways as vectors
@@ -124,7 +141,7 @@ pub fn waypoints_coastline_lib(path: &OsString) -> Vec<(f64, f64)> {
     };
 }
 
-pub fn connect_coastlines(mut ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
+pub fn connect_coastlines(ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
     let mut start_nodes: HashMap<i64, Vec<i64>> = HashMap::new();  // refers to incomplete_coastlines
     let mut end_nodes: HashMap<i64, Vec<i64>> = HashMap::new();    // refers to incomplete_coastlines
     let mut complete_coastlines: Vec<Vec<i64>> = vec![];    // contains only full coastlines, where the last point has the same id as the first
@@ -153,7 +170,7 @@ pub fn connect_coastlines(mut ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
         let mut new_coastline: Vec<i64> = vec![];
 
         match (end_connection, start_connection, end_end_connection, start_start_connection) {
-            (Some(mut following_coastline), None, None, None) => {
+            (Some(following_coastline), None, None, None) => {
                 new_coastline = ways[i].to_owned();
                 new_coastline.append(&mut following_coastline[1..].to_vec());
                 se_count +=1;

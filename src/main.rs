@@ -1,30 +1,31 @@
 use std::error::Error;
 use std::time::{SystemTime};
-use geojson::{Geometry, Value};
-use std::fs;
 
-mod read_pbf;
+mod import_pbf;
 
-use crate::read_pbf::waypoints_coastline_parallel;
+use crate::import_pbf::import_pbf;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Read command line argument and create IndexedReader
-    let arg = std::env::args_os()
+    const COMMANDS: &str = "import/generate/run";
+
+    let command = std::env::args_os()
         .nth(1)
-        .ok_or("need a *.osm.pbf file as argument")?;
+        .ok_or(format!("need to specify the command, {}", COMMANDS))?;
 
-
-    let now = SystemTime::now();
-    println!("Importing pbf file...");
-    let coastline = waypoints_coastline_parallel(&arg);
-    println!("Ways with coastline tag:  {}", coastline.len());
-    println!("Import and filter time: {}sek", now.elapsed()?.as_secs());
-
-    let now = SystemTime::now();
-    println!("Writing GeoJSON...");
-    let geometry = Geometry::new(Value::MultiLineString(coastline));
-    fs::write("./geojson.json", geometry.to_string()).expect("Unable to write file");
-    println!("Time to write file: {}sek", now.elapsed()?.as_secs());
+    match command.to_str() {
+        Some("import") => {
+            let arg = std::env::args_os()
+                .nth(2)
+                .ok_or("need a *.osm.pbf file as argument")?;
+    
+            let now = SystemTime::now();
+            println!("Importing pbf file...");
+            import_pbf(&arg)?;
+            println!("Import completed, overall time: {}sek", now.elapsed()?.as_secs());
+        },
+        Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),
+        None => println!("need to specify the command, {}", COMMANDS),
+    }
 
     Ok(())
 }
