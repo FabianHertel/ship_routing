@@ -6,7 +6,7 @@ use geojson::{GeoJson, Geometry, Value};
 pub fn generate_map() -> Result<(), Box<dyn Error>> {
     println!("1/?: Read GeoJSON ...");
     let now = SystemTime::now();
-    let geojson_str = fs::read_to_string("./geojson.json").expect("Unable to read JSON file");
+    let geojson_str = fs::read_to_string("./geojson/import.json").expect("Unable to read JSON file");
     let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap();
     let geometry: Geometry = Geometry::try_from(geojson).unwrap();
     let coastlines: Vec<Vec<Vec<f64>>> = match geometry.value {

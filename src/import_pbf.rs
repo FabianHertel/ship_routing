@@ -32,7 +32,7 @@ pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
     println!("4/4: Write GeoJSON ...");
     let now = SystemTime::now();
     let geometry = Geometry::new(Value::MultiLineString(coastline_coordinates));
-    fs::write("./geojson.json", geometry.to_string()).expect("Unable to write file");
+    fs::write("./geojson/import.json", geometry.to_string()).expect("Unable to write file");
     println!("4/4: Finished in {} sek", now.elapsed()?.as_secs());
 
     Ok(())
