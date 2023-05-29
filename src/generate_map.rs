@@ -1,5 +1,4 @@
 use std::{time::SystemTime, fs, error::Error};
-
 use geojson::{GeoJson, Geometry, Value};
 
 
@@ -7,7 +6,9 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     println!("1/?: Read GeoJSON ...");
     let now = SystemTime::now();
     let geojson_str = fs::read_to_string("./geojson/import.json").expect("Unable to read JSON file");
-    let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap();
+    println!("1/?: Read finished after {} sek", now.elapsed()?.as_secs());
+    let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap();     // needs much of time (4-5min for world)
+    println!("1/?: GeoJSON finished after {} sek", now.elapsed()?.as_secs());
     let geometry: Geometry = Geometry::try_from(geojson).unwrap();
     let coastlines: Vec<Vec<Vec<f64>>> = match geometry.value {
         Value::MultiLineString(coords) => coords,
@@ -15,10 +16,18 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     };
     println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
 
-    println!("Point in polygon test: {}", point_in_polygon_test(0.0,0.0, &coastlines));
-    println!("Point in polygon test: {}", point_in_polygon_test(34.117786526143604, -104.2758092369033, &coastlines));
-    println!("Point in polygon test: {}", point_in_polygon_test(-27.24044854389621, 70.01752410356319, &coastlines));
-    println!("Point in polygon test: {}", point_in_polygon_test(71.55, -74.1878186, &coastlines));
+    let now = SystemTime::now();
+    println!("Point in water (Atlantic): {}", point_in_polygon_test(0.0,0.0, &coastlines));     // Atlantic
+    println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    let now = SystemTime::now();
+    println!("Point in water (US): {}", point_in_polygon_test(-104.2758092369033, 34.117786526143604, &coastlines));      //US
+    println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    let now = SystemTime::now();
+    println!("Point in water (North pole): {}", point_in_polygon_test(-27.24044854389621, 70.01752410356319, &coastlines));       // North of Grönland
+    println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    let now = SystemTime::now();
+    println!("Point in water (Antarctica): {}", point_in_polygon_test(71.55, -74.1878186, &coastlines));      //Antarctica
+    println!("Finished test in {} millis", now.elapsed()?.as_millis());
 
     Ok(())
 }
@@ -43,7 +52,7 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Vec<Vec<f64>>>) -> b
                 if (polygon[i][1] < lat) && (polygon[j][1] < lat) {     // if both start and end point are south, the going south will cross
                     println!("Line crossed: {}, {}; {}, {}", polygon[i][0], polygon[i][1], polygon[j][0], polygon[j][1]);
                     in_water = !in_water;
-                } else if (polygon[i][1] < lat) || (polygon[j][1] < lat) {      // if one of start and end point are south, we have to check...
+                } else if (polygon[i][1] < lat) || (polygon[j][1] < lat) {      // if one of start and end point are south, we have to check... (happens rarely for coastline)
                     let slope = (lat-polygon[i][1])*(polygon[j][0]-polygon[i][0])-(polygon[j][1]-polygon[i][1])*(lon-polygon[i][0]);
                     if (slope < 0.0) != (polygon[j][0] < polygon[i][1]) {
                         println!("Line crossed");
