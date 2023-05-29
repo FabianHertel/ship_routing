@@ -2,8 +2,10 @@ use std::error::Error;
 use std::time::{SystemTime};
 
 mod import_pbf;
+mod generate_map;
 
 use crate::import_pbf::import_pbf;
+use crate::generate_map::generate_map;
 
 fn main() -> Result<(), Box<dyn Error>> {
     const COMMANDS: &str = "import/generate/run";
@@ -24,7 +26,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Import completed, overall time: {}sek", now.elapsed()?.as_secs());
         }
         Some("generate") => {
-            todo!()
+            generate_map()?;
         }
         Some("run") => {
             todo!()
