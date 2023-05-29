@@ -1,5 +1,5 @@
-use osmpbf::{Element, ElementReader, IndexedReader};
-use std::{ffi::OsString, collections::{HashSet, HashMap}, time::SystemTime, error::Error};
+use osmpbf::{Element, ElementReader};
+use std::{ffi::OsString, collections::{HashSet, HashMap, LinkedList}, time::SystemTime, error::Error};
 use geojson::{Geometry, Value};
 use std::fs;
 
@@ -9,39 +9,73 @@ use std::fs;
 pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
     println!("1/4: Read and filter OSM ways with tag 'coastline'...");
     let now = SystemTime::now();
-    let waypoint_refs: Vec<Vec<i64>> = coastline_as_refs_parallel(path);     //filter ways
+    let waypoint_refs: Vec<Vec<i64>> = read_coastline(path);     //filter ways
     println!("1/4: Ways with coastline tag:  {}", waypoint_refs.len());
-    println!("1/4: Finished in {}sek", now.elapsed()?.as_secs());
+    println!("1/4: Finished in {} sek", now.elapsed()?.as_secs());
 
     println!("2/4: Connecting coastlines...");
     let now = SystemTime::now();
     let coastline = connect_coastlines(waypoint_refs);
     println!("2/4: Number of continents and islands:  {}", coastline.len());
-    println!("2/4: Finished in {}sek", now.elapsed()?.as_secs());
+    println!("2/4: Finished in {} sek", now.elapsed()?.as_secs());
 
     println!("3/4: Read coordinates of points and merge data...");
     let now = SystemTime::now();
-    let coordinates = coordinates_of_points(path, &coastline);
+    let coordinates = read_coordinates(path, &coastline);
 
     let coastline_coordinates = coastline.into_iter().map(|way| way.into_iter().map(|point_ref| {
         let coordinates = coordinates.get(&point_ref).unwrap();
         vec![coordinates.0, coordinates.1]
     }).collect()).collect();     // merge ways with coordinates and convert coordinates to vector
-    println!("3/4: Finished in {}sek", now.elapsed()?.as_secs());
+    println!("3/4: Finished in {} sek", now.elapsed()?.as_secs());
     
         
     println!("4/4: Write GeoJSON ...");
     let now = SystemTime::now();
     let geometry = Geometry::new(Value::MultiLineString(coastline_coordinates));
     fs::write("./geojson.json", geometry.to_string()).expect("Unable to write file");
-    println!("4/4: Finished in {}sek", now.elapsed()?.as_secs());
+    println!("4/4: Finished in {} sek", now.elapsed()?.as_secs());
 
     Ok(())
 }
 
+/* reads and filters the ways with tag coastline
+returns: list of references to nodes
+ */
+fn read_coastline(path: &OsString) -> Vec<Vec<i64>> {
+    let reader = ElementReader::from_path(path);
+
+    match reader.unwrap().par_map_reduce(
+        |element| {
+            match element {
+                Element::Way(way) => {
+                    if way.tags().any(|key_value| key_value == ("natural", "coastline")) {
+                        LinkedList::from([way.refs().collect()])
+                    } else {
+                        LinkedList::new()
+                    }
+                },
+                _ => LinkedList::new(),
+            }
+        },
+        || LinkedList::new(),
+        |mut a, mut b| {
+            a.append(&mut b);
+            a
+        }
+    ) {
+        Ok(ways) => return ways.into_iter().collect(),
+        Err(e) => {
+            println!("{}", e.to_string());
+            return vec![]
+        }
+    };
+}
+
+
 /* read coordinates of point ids from ways as vectors
  */
-fn coordinates_of_points(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f64, f64)> {
+fn read_coordinates(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f64, f64)> {
     let reader = ElementReader::from_path(path);
     let node_set: HashSet<i64> = ways.to_owned().into_iter().reduce(|mut way_a, mut way_b| {
         way_a.append(&mut way_b);
@@ -53,21 +87,21 @@ fn coordinates_of_points(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, 
             match element {
                 Element::DenseNode(node) => {
                     if node_set.contains(&node.id) {    // add coordinates to loop vector which will be returned
-                        HashMap::from([(node.id, (node.lon(), node.lat()))])
+                        LinkedList::from([(node.id, (node.lon(), node.lat()))])
                     } else {
-                        HashMap::new()
+                        LinkedList::new()
                     }
                 },
-                _ => HashMap::new(),
+                _ => LinkedList::new(),
             }
         },
-        || HashMap::new(),      // initial empty vector
-        |mut a, b| {
-            a.extend(b);         // merge vectors of parallel operations
+        || LinkedList::new(),      // initial empty vector
+        |mut a, mut b| {
+            a.append(&mut b);         // merge vectors of parallel operations
             return a;
         }
     ) {
-        Ok(ways) => return ways.to_owned(),
+        Ok(ways) => return ways.into_iter().collect(),
         Err(e) => {
             println!("{}", e.to_string());
             return HashMap::new()
@@ -75,71 +109,6 @@ fn coordinates_of_points(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, 
     };
 }
 
-/* filters for the ways with tag coastline
-returns: list of references to nodes
- */
-fn coastline_as_refs_parallel(path: &OsString) -> Vec<Vec<i64>> {
-    let reader = ElementReader::from_path(path);
-
-    match reader.unwrap().par_map_reduce(
-        |element| {
-            match element {
-                Element::Way(way) => {
-                    if way.tags().any(|key_value| key_value == ("natural", "coastline")) {
-                        vec![way.refs().collect()]
-                    } else {
-                        vec![]
-                    }
-                },
-                _ => vec![],
-            }
-        },
-        || vec![],
-        |mut a, mut b| {
-            if a.len() == 0 {
-                b
-            } else if b.len() == 0 {
-                a
-            } else {
-                b.append(&mut a);
-                b
-            }
-        }
-    ) {
-        Ok(ways) => return ways,
-        Err(e) => {
-            println!("{}", e.to_string());
-            return vec![]
-        }
-    };
-}
-
-#[allow(dead_code)]
-pub fn waypoints_coastline_lib(path: &OsString) -> Vec<(f64, f64)> {
-    let mut nodes: Vec<(f64, f64)> = vec![];
-    let mut reader = IndexedReader::from_path(path).unwrap();
-
-    match reader.read_ways_and_deps(
-        |way| {
-            // Filter ways for coastline
-            way.tags().any(|key_value| key_value == ("natural", "coastline"))
-        },
-        |element| {
-            // add nodes to list
-            match element {
-                Element::Node(node) => nodes.push((node.lon(), node.lat())),
-                Element::DenseNode(dense_node) => nodes.push((dense_node.lon(), dense_node.lat())),
-                _ => {}
-            }
-        },
-    ) {
-        Ok(()) => return nodes,
-        Err(e) => {
-            println!("{}", e.to_string());
-            return vec![]
-        }
-    };
-}
 
 pub fn connect_coastlines(ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
     let mut start_nodes: HashMap<i64, Vec<i64>> = HashMap::new();  // refers to incomplete_coastlines
