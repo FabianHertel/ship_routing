@@ -22,7 +22,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Importing pbf file...");
             import_pbf(&arg)?;
             println!("Import completed, overall time: {}sek", now.elapsed()?.as_secs());
-        },
+        }
+        Some("generate") => {
+            todo!()
+        }
+        Some("run") => {
+            todo!()
+        }
         Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),
         None => println!("need to specify the command, {}", COMMANDS),
     }

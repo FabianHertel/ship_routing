@@ -16,7 +16,7 @@ pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
     println!("2/4: Connecting coastlines...");
     let now = SystemTime::now();
     let coastline = connect_coastlines(waypoint_refs);
-    println!("2/4: N of continents and islands:  {}", coastline.len());
+    println!("2/4: Number of continents and islands:  {}", coastline.len());
     println!("2/4: Finished in {}sek", now.elapsed()?.as_secs());
 
     println!("3/4: Read coordinates of points and merge data...");
@@ -48,7 +48,7 @@ fn coordinates_of_points(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, 
         return way_a
     }).unwrap().into_iter().collect();   //refs of nodes into HashSet
 
-    match reader.unwrap().par_map_reduce(
+    match reader.unwrap().par_map_reduce(   // TODO: try with vector instead HashMap and construct HashMap afterwards
         |element| {
             match element {
                 Element::DenseNode(node) => {
@@ -94,7 +94,7 @@ fn coastline_as_refs_parallel(path: &OsString) -> Vec<Vec<i64>> {
                 _ => vec![],
             }
         },
-        || vec![],      // Zero is the identity value for addition
+        || vec![],
         |mut a, mut b| {
             if a.len() == 0 {
                 b
@@ -146,18 +146,9 @@ pub fn connect_coastlines(ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
     let mut end_nodes: HashMap<i64, Vec<i64>> = HashMap::new();    // refers to incomplete_coastlines
     let mut complete_coastlines: Vec<Vec<i64>> = vec![];    // contains only full coastlines, where the last point has the same id as the first
 
-    let mut m_count = 0;
-    let mut n_count = 0;
-    let mut c_count = 0;
-    let mut se_count = 0;
-    let mut es_count = 0;
-    let mut f_count = 0;
-    let mut other_count = 0;
-
     for i in 0..ways.len() {
         if ways[i][0].to_owned() == ways[i][ways[i].len().to_owned()-1].to_owned() {
             complete_coastlines.push(ways[i].to_owned());
-            c_count += 1;
             continue;
         }
         let end_connection = start_nodes.remove(&ways[i][ways[i].len()-1]);
@@ -173,33 +164,27 @@ pub fn connect_coastlines(ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
             (Some(following_coastline), None, None, None) => {
                 new_coastline = ways[i].to_owned();
                 new_coastline.append(&mut following_coastline[1..].to_vec());
-                se_count +=1;
             }
             (None, Some(leading_coastline), None, None) => {
                 new_coastline = leading_coastline;
                 new_coastline.append(&mut ways[i][1..].to_vec());
-                es_count +=1;
             }
             (Some(following_coastline), Some(leading_coastline), None, None) => {
                 if following_coastline[0] == leading_coastline[0] {
                     new_coastline = leading_coastline;
                     new_coastline.append(&mut ways[i][1..].to_vec());
                     complete_coastlines.push(new_coastline);
-                    f_count += 1;
                     continue;
                 }
                 new_coastline = leading_coastline;
                 new_coastline.append(&mut ways[i][1..].to_vec());
                 new_coastline.append(&mut following_coastline[1..].to_vec());
-                m_count +=1;
             }
             (None, None, None, None) => {
                 new_coastline = ways[i].to_owned();
-                n_count +=1;
             }
             (_, _, _, _) => {
-                other_count +=1;
-                println!("Should not occur")
+                println!("Start-start or an end-end connection was encountered. Should not occur!")
             }
         }
         if new_coastline.len() > 1 {
@@ -207,6 +192,7 @@ pub fn connect_coastlines(ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
             start_nodes.insert(*new_coastline.first().unwrap(),new_coastline);
         }
     }
-    println!("Counts: {}, {}, {}, {}, {}, {}, {}", se_count, es_count, m_count, n_count, c_count, f_count, other_count);
+    assert_eq!(end_nodes.len(), 0);     // if not zero, there is a coastline where beginning and ending are not connected
+    assert_eq!(start_nodes.len(), 0);   // if not zero, there is a coastline where beginning and ending are not connected
     return complete_coastlines
 }
