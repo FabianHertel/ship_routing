@@ -6,7 +6,7 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
+    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("complete");
     println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
 
     let now = SystemTime::now();

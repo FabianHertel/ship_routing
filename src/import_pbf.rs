@@ -32,28 +32,41 @@ pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
         
     println!("4/4: Write GeoJSON ...");
     let now = SystemTime::now();
-    let geometry = Geometry::new(Value::MultiLineString(coastline_coordinates));
-    fs::write("./geojson/import.json", geometry.to_string()).expect("Unable to write file");
+    print_geojson(coastline_coordinates, "complete", false);
     println!("4/4: Finished in {} sek", now.elapsed()?.as_secs());
 
     Ok(())
 }
 
-pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str) {
+pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str, reduce: bool) {
     coastlines.sort_by(|a,b| b.len().cmp(&a.len()));
+    if reduce {
+        coastlines = reduces_coastlines(coastlines);
+    }
 
     let continents = coastlines[..10].to_vec();
     let big_islands = coastlines[10..100].to_vec();
     let islands = coastlines[100..1000].to_vec();
     let small_islands = coastlines[1000..].to_vec();
 
-    [("continents", continents), ("big_islands", big_islands), ("islands", islands), ("small_islands", small_islands)].par_iter().for_each(|file| {
+    let iterator_objects = [("continents", continents), ("big_islands", big_islands), ("islands", islands), ("small_islands", small_islands)];
+    iterator_objects.par_iter().for_each(|file| {
         let filename = prefix.to_owned() + "_" + file.0;
         let now = SystemTime::now();
-        let geometry_continents = Geometry::new(Value::MultiLineString(file.1.to_owned()));
-        fs::write(format!("./geojson/{}.json", filename), geometry_continents.to_string()).expect("Unable to write file");
+        let geometry = Geometry::new(Value::MultiLineString(file.1.to_owned()));
+        fs::write(format!("./geojson/{}.json", filename), geometry.to_string()).expect("Unable to write file");
         println!("Finished {} in {} sek", filename, now.elapsed().unwrap().as_secs());
     });
+    println!("Exit parallel");
+}
+
+
+fn reduces_coastlines(mut coastlines: Vec<Vec<Vec<f64>>>) -> Vec<Vec<Vec<f64>>> {
+    return coastlines.par_iter_mut().filter(|a| a.len() > 400).map(|a| {
+            let mut reduced_line: Vec<Vec<f64>> = a.iter().step_by(100).map(|a| a.to_owned()).collect();
+            reduced_line.push(a.last().unwrap().to_owned());
+            return reduced_line;
+    }).collect()
 }
 
 /* reads and filters the ways with tag coastline

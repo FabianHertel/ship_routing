@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::time::{SystemTime};
-use rayon::prelude::*;
 
 mod import_pbf;
 mod generate_map;
@@ -32,20 +31,16 @@ fn main() -> Result<(), Box<dyn Error>> {
             let export_prefix = std::env::args_os().nth(3)
                 .ok_or("specify an export prefix")?;
             let reduce = std::env::args_os().nth(4)
-                .ok_or("define, if you want to reduce the data")?;
+                .ok_or("define, if you want to reduce the data")?.to_str().unwrap().trim() == "true";
             
             println!("1/2: Read GeoJSONs parallel ...");
             let now = SystemTime::now();
-            let mut coastlines: Vec<Vec<Vec<f64>>> = read_geojsons(import_prefix.to_str().unwrap());
+            let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons(import_prefix.to_str().unwrap());
             println!("1/2: Finished in {} sek", now.elapsed()?.as_secs());
             
-            if reduce.to_str().unwrap().trim() == "true" {
-                coastlines = reduces_coastlines(coastlines);
-            }
-        
             println!("2/2: Write GeoJSON ...");
             let now = SystemTime::now();
-            print_geojson(coastlines, export_prefix.to_str().unwrap());
+            print_geojson(coastlines, export_prefix.to_str().unwrap(), reduce);
             println!("2/2: Finished in {} sek", now.elapsed()?.as_secs());
         }
         Some("generate") => {
@@ -59,12 +54,4 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
-}
-
-fn reduces_coastlines(mut coastlines: Vec<Vec<Vec<f64>>>) -> Vec<Vec<Vec<f64>>> {
-    return coastlines.par_iter_mut().filter(|a| a.len() > 400).map(|a| {
-            let mut reduced_line: Vec<Vec<f64>> = a.iter().step_by(100).map(|a| a.to_owned()).collect();
-            reduced_line.push(a.last().unwrap().to_owned());
-            return reduced_line;
-    }).collect()
 }
