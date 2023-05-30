@@ -1,19 +1,12 @@
 use std::{time::SystemTime, fs, error::Error};
 use geojson::{GeoJson, Geometry, Value};
-
+use rayon::prelude::*;
 
 pub fn generate_map() -> Result<(), Box<dyn Error>> {
-    println!("1/?: Read GeoJSON ...");
+
+    println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let geojson_str = fs::read_to_string("./geojson/import.json").expect("Unable to read JSON file");
-    println!("1/?: Read finished after {} sek", now.elapsed()?.as_secs());
-    let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap();     // needs much of time (4-5min for world)
-    println!("1/?: GeoJSON finished after {} sek", now.elapsed()?.as_secs());
-    let geometry: Geometry = Geometry::try_from(geojson).unwrap();
-    let coastlines: Vec<Vec<Vec<f64>>> = match geometry.value {
-        Value::MultiLineString(coords) => coords,
-        _ => vec![]
-    };
+    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
     println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
 
     let now = SystemTime::now();
@@ -30,6 +23,24 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     println!("Finished test in {} millis", now.elapsed()?.as_millis());
 
     Ok(())
+}
+
+pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
+    return  ["continents", "big_islands", "islands", "small_islands"].par_iter().map(|filename| {
+        let now = SystemTime::now();
+        let filename = prefix.to_owned() + "_" + filename;
+        let geojson_str = fs::read_to_string(format!("./geojson/{filename}.json")).expect("Unable to read JSON file");
+        let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap();     // needs much of time (4-5min for world)
+        println!("Parsing {} finished after {} sek", filename, now.elapsed().unwrap().as_secs());
+        let geometry: Geometry = Geometry::try_from(geojson).unwrap();
+        match geometry.value {
+            Value::MultiLineString(coords) => coords,
+            _ => vec![]
+        }
+    }).reduce(|| vec![], |mut a,mut b| {
+        a.append(&mut b);
+        return a
+    });
 }
 
 /**

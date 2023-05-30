@@ -2,6 +2,7 @@ use osmpbf::{Element, ElementReader};
 use std::{ffi::OsString, collections::{HashSet, HashMap, LinkedList}, time::SystemTime, error::Error};
 use geojson::{Geometry, Value};
 use std::fs;
+use rayon::prelude::*;
 
 
 /* filters ways for tag coastline and then searches for coordinates of referenced nodes
@@ -23,7 +24,7 @@ pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
     let now = SystemTime::now();
     let coordinates = read_coordinates(path, &coastline);
 
-    let coastline_coordinates = coastline.into_iter().map(|way| way.into_iter().map(|point_ref| {
+    let coastline_coordinates: Vec<Vec<Vec<f64>>> = coastline.into_iter().map(|way| way.into_iter().map(|point_ref| {
         let coordinates = coordinates.get(&point_ref).unwrap();
         vec![coordinates.0, coordinates.1]
     }).collect()).collect();     // merge ways with coordinates and convert coordinates to vector
@@ -36,6 +37,23 @@ pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
     println!("4/4: Finished in {} sek", now.elapsed()?.as_secs());
 
     Ok(())
+}
+
+pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str) {
+    coastlines.sort_by(|a,b| b.len().cmp(&a.len()));
+
+    let continents = coastlines[..10].to_vec();
+    let big_islands = coastlines[10..100].to_vec();
+    let islands = coastlines[100..1000].to_vec();
+    let small_islands = coastlines[1000..].to_vec();
+
+    [("continents", continents), ("big_islands", big_islands), ("islands", islands), ("small_islands", small_islands)].par_iter().for_each(|file| {
+        let filename = prefix.to_owned() + "_" + file.0;
+        let now = SystemTime::now();
+        let geometry_continents = Geometry::new(Value::MultiLineString(file.1.to_owned()));
+        fs::write(format!("./geojson/{}.json", filename), geometry_continents.to_string()).expect("Unable to write file");
+        println!("Finished {} in {} sek", filename, now.elapsed().unwrap().as_secs());
+    });
 }
 
 /* reads and filters the ways with tag coastline
