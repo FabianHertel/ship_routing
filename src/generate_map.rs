@@ -6,7 +6,7 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("complete");
+    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
     println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
 
     println!("2/?: Precalculations for islands/continents ...");
@@ -33,7 +33,7 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
 struct Island {
     #[allow(dead_code)]
     coastline: Vec<Vec<f64>>,
-    cog: Vec<f64>,
+    reference_points: Vec<Vec<f64>>,
     max_dist_from_cog: f64
 }
 
@@ -46,24 +46,62 @@ impl Island {
         let n = coastline.len().to_owned() as f64;
         cog = [cog[0] / n, cog[1] / n];
 
+        let mut reference_points = vec![cog.to_vec()];
+        let mut most_far_away_point: &Vec<f64> = &vec![];
         let mut max_dist_from_cog = 0.0;
+        let mut distance_sum = 0.0;
         for point in &coastline {
             let distance = distance_between(point, &cog.to_vec());
+            distance_sum += distance;
             if distance > max_dist_from_cog {
+                most_far_away_point = point;
                 max_dist_from_cog = distance;
             }
+        }
+        
+        // calculate more reference points (additional to cog) to get shorter max distances
+        let mut refpoint_most_far_away = cog.to_vec();
+        while max_dist_from_cog > 1000.0 && (distance_sum / coastline.len() as f64) < 0.5 * max_dist_from_cog {
+            let new_refpoint = vec![(refpoint_most_far_away[0] + most_far_away_point[0]) / 2.0, (refpoint_most_far_away[1] + most_far_away_point[1]) / 2.0];
+            print!("Dist: {}, with average: {} -> Generated {}, {}", max_dist_from_cog, (distance_sum / coastline.len() as f64), new_refpoint[0], new_refpoint[1]);
+            reference_points.push(new_refpoint);
+            distance_sum = 0.0;
+            max_dist_from_cog = 0.0;
+            for point in &coastline {
+                let (distance, refpoint) = calculate_min_distance(point, reference_points.to_owned());
+                distance_sum += distance;
+                if distance > max_dist_from_cog {
+                    most_far_away_point = point;
+                    max_dist_from_cog = distance;
+                    refpoint_most_far_away = refpoint;
+                }
+            }
+            println!("; new dist: {}, new average: {}", max_dist_from_cog, (distance_sum / coastline.len() as f64));
         }
 
         Island {
             coastline,
-            cog: cog.to_vec(),
+            reference_points,
             max_dist_from_cog
         }
     }
 
     fn in_range(&self, x: &Vec<f64>) -> bool {
-        return distance_between(x, &self.cog) < self.max_dist_from_cog
+        return calculate_min_distance(x, self.reference_points.to_owned()).0 < self.max_dist_from_cog;
     }
+}
+
+fn calculate_min_distance(x: &Vec<f64>, reference_points:Vec<Vec<f64>>) -> (f64, Vec<f64>) {
+    let mut min_distance = 40000.0;
+    let mut closest_refpoint = &reference_points[0];
+    reference_points.iter().for_each(|reference_point| {
+        let distance = distance_between(x, reference_point);
+        if distance < min_distance {
+            min_distance = distance;
+            closest_refpoint = reference_point;
+        }
+    });
+    return (min_distance, closest_refpoint.to_owned());
 }
 
 fn distance_between(x: &Vec<f64>, y:&Vec<f64>) -> f64 {
@@ -113,7 +151,7 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
         if island.in_range(&vec![lon, lat]) {
             let polygon = &island.coastline;
             let mut in_water = false;
-            // println!("Island center: {}, {}; max_dist_from_cog: {}; point distance: {}", island.cog[0], island.cog[1], island.max_dist_from_cog, distance_between(&island.cog, &vec![lon, lat]));
+            // println!("Island center: {}, {}; max_dist_from_cog: {}; point distance: {}, coastline_points: {}", island.reference_points[0][0], island.reference_points[0][1], island.max_dist_from_cog, distance_between(&island.reference_points[0], &vec![lon, lat]), island.coastline.len());
             for j in 1..polygon.len() {       // ignore first point in polygon, because first and last will be the same
                 let i = j - 1;
                 if (polygon[i][0] > lon) != (polygon[j][0] > lon) {   // check if given point has lon between start and end point of edge
