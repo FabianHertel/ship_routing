@@ -29,7 +29,7 @@ pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
         vec![coordinates.0, coordinates.1]
     }).collect()).collect();     // merge ways with coordinates and convert coordinates to vector
     println!("3/4: Finished in {} sek", now.elapsed()?.as_secs());
-        
+
     println!("4/4: Write GeoJSON ...");
     let now = SystemTime::now();
     print_geojson(coastline_coordinates, "complete", false);

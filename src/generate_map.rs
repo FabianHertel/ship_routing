@@ -1,4 +1,4 @@
-use std::{time::SystemTime, fs, error::Error};
+use std::{time::SystemTime, fs, error::Error, f64::consts::PI};
 use geojson::{GeoJson, Geometry, Value};
 use rayon::prelude::*;
 
@@ -6,8 +6,14 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("complete");
+    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
     println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
+
+    println!("2/?: Precalculations for islands/continents ...");
+    let now = SystemTime::now();
+    let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
+    println!("2/?: Biggest Continent: center={},{}; distance={}", islands[10].cog[0], islands[10].cog[1], islands[10].max_dist_from_cog);
+    println!("2/?: Finished precalculations in {} millis", now.elapsed()?.as_millis());
 
     let now = SystemTime::now();
     println!("Point in water (Atlantic): {}", point_in_polygon_test(0.0,0.0, &coastlines));     // Atlantic
@@ -23,6 +29,51 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     println!("Finished test in {} millis", now.elapsed()?.as_millis());
 
     Ok(())
+}
+
+struct Island {
+    #[allow(dead_code)]
+    coastline: Vec<Vec<f64>>,
+    cog: Vec<f64>,
+    max_dist_from_cog: f64
+}
+
+impl Island {
+    fn new(coastline: Vec<Vec<f64>>) -> Island {
+        let mut cog = [0.0, 0.0];
+        for point in &coastline {
+            cog = [cog[0] + point[0], cog[1] + point[1]];
+        }
+        let n = coastline.len().to_owned() as f64;
+        cog = [cog[0] / n, cog[1] / n];
+
+        let mut max_dist_from_cog = 0.0;
+        for point in &coastline {
+            let distance = distance_between(point, &cog.to_vec());
+            if distance > max_dist_from_cog {
+                max_dist_from_cog = distance;
+            }
+        }
+
+        Island {
+            coastline,
+            cog: cog.to_vec(),
+            max_dist_from_cog
+        }
+    }
+}
+
+fn distance_between(x: &Vec<f64>, y:&Vec<f64>) -> f64 {
+    // from: http://www.movable-type.co.uk/scripts/latlong.html
+    let φ1 = x[1] * PI/180.0; // φ, λ in radians
+    let φ2 = y[1] * PI/180.0;
+    let dφ = (y[1]-x[1]) * PI/180.0;
+    let dλ = (y[0]-y[1]) * PI/180.0;
+    const EARTH_RADIUS: f64 = 6371.0;
+
+    let haversine = (dφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (dλ/2.0).sin().powi(2);
+    let distance = EARTH_RADIUS * 2.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
+    return distance;
 }
 
 pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
