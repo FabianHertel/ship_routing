@@ -26,16 +26,21 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     let now = SystemTime::now();
     println!("Point on land (Antarctica): {}", point_in_polygon_test(71.55, -74.1878186, &islands));      //Antarctica
     println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    let now = SystemTime::now();
+    println!("Point on land (Mid of pacific): {}", point_in_polygon_test(-144.1294183409396, -47.75776979131451, &islands));      //Antarctica
+    println!("Finished test in {} millis", now.elapsed()?.as_millis());
 
     Ok(())
 }
 
 struct Island {
     #[allow(dead_code)]
-    coastline: Vec<Vec<f64>>,
-    reference_points: Vec<Vec<f64>>,
-    max_dist_from_cog: f64
-}
+        coastline: Vec<Vec<f64>>,
+        cog: Vec<f64>,
+        max_dist_from_cog: f64,
+        reference_points: Vec<Vec<f64>>,
+        max_dist_from_ref: f64
+    }
 
 impl Island {
     fn new(coastline: Vec<Vec<f64>>) -> Island {
@@ -58,36 +63,42 @@ impl Island {
                 max_dist_from_cog = distance;
             }
         }
+        let mut max_dist_from_ref = max_dist_from_cog;
         
         // calculate more reference points (additional to cog) to get shorter max distances
         let mut refpoint_most_far_away = cog.to_vec();
-        while max_dist_from_cog > 1000.0 && (distance_sum / coastline.len() as f64) < 0.5 * max_dist_from_cog {
+        while max_dist_from_ref > 1000.0 && (distance_sum / coastline.len() as f64) < 0.5 * max_dist_from_ref {
             let new_refpoint = vec![(refpoint_most_far_away[0] + most_far_away_point[0]) / 2.0, (refpoint_most_far_away[1] + most_far_away_point[1]) / 2.0];
-            print!("Dist: {}, with average: {} -> Generated {}, {}", max_dist_from_cog, (distance_sum / coastline.len() as f64), new_refpoint[0], new_refpoint[1]);
+            print!("Dist: {}, with average: {} -> Generated {}, {}", max_dist_from_ref, (distance_sum / coastline.len() as f64), new_refpoint[0], new_refpoint[1]);
             reference_points.push(new_refpoint);
             distance_sum = 0.0;
-            max_dist_from_cog = 0.0;
+            max_dist_from_ref = 0.0;
             for point in &coastline {
                 let (distance, refpoint) = calculate_min_distance(point, reference_points.to_owned());
                 distance_sum += distance;
-                if distance > max_dist_from_cog {
+                if distance > max_dist_from_ref {
                     most_far_away_point = point;
-                    max_dist_from_cog = distance;
+                    max_dist_from_ref = distance;
                     refpoint_most_far_away = refpoint;
                 }
             }
-            println!("; new dist: {}, new average: {}", max_dist_from_cog, (distance_sum / coastline.len() as f64));
+            println!("; new dist: {}, new average: {}", max_dist_from_ref, (distance_sum / coastline.len() as f64));
         }
 
         Island {
-            coastline,
-            reference_points,
-            max_dist_from_cog
-        }
+                coastline,
+                cog: cog.to_vec(),
+                max_dist_from_cog,
+                reference_points,
+                max_dist_from_ref
+            }
     }
 
     fn in_range(&self, x: &Vec<f64>) -> bool {
-        return calculate_min_distance(x, self.reference_points.to_owned()).0 < self.max_dist_from_cog;
+        if distance_between(x, &self.cog) < self.max_dist_from_cog {
+            return calculate_min_distance(x, self.reference_points.to_owned()).0 < self.max_dist_from_ref;
+        }
+        return false;
     }
 }
 
