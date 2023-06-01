@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>OSM Ship Routing</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="libs/leaflet/leaflet.css" />
+    <style>
+        body {
+            padding: 0;
+            margin: 0;
+        }
+
+        html,
+        body,
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        #controls {
+            padding: 10px;
+            background-color: rgb(255, 255, 255);
+        }
+
+        #controls a {
+            display: inline;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="leaflet-control-container">
+        <div class="leaflet-top leaflet-right">
+            <div id="controls" class="leaflet-bar leaflet-control">
+                <input id="query-button" type="button" value="Laden">
+                <input id="reset-button" type="button" value="Reset">
+            </div>
+        </div>
+    </div>
+    <div id="map">
+    </div>
+
+    <script src="libs/leaflet/leaflet.js"></script>
+    <script src="libs/jquery/jquery.js"></script>
+
+
+    <script>
+        var destination_markers = new Array();
+        var map = L.map('map',{
+            center: [0, 0],
+            zoom: 3
+        });
+        L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+                '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+        }).addTo(map);
+
+        map.on('click', function (e) {
+            var popLocation = e.latlng;
+            if (destination_markers.length < 2) {
+                let marker = L.marker(popLocation).addTo(map);
+                destination_markers.push(marker);
+            }
+        });
+
+        $("#query-button").on('click', function (e) {
+            if (destination_markers.length == 2) {
+                fetch("api/endpoint", {
+                    method: "POST",
+                    body: JSON.stringify({point1: destination_markers[0], point2: destination_markers[1]}),
+                    headers: {
+                        "Content-Type": "application/json",
+                    }
+                })
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(data);
+                })
+                .catch((error) =>
+                {
+                    console.error(error);
+                })
+            }
+            else {
+                alert("First pick source and target points, please");
+            }
+        });
+
+        $("#reset-button").on('click', function (e) {
+            for (let marker of destination_markers) {
+                map.removeLayer(marker);
+            }
+            destination_markers = [];
+
+        });
+
+
+    </script>
+</body>
+
+</html>
