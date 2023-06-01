@@ -44,10 +44,11 @@ pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str, reduce: b
         coastlines = reduces_coastlines(coastlines);
     }
 
+    // only good match for the blue planet earth
     let continents = coastlines[..10].to_vec();
-    let big_islands = coastlines[10..100].to_vec();
-    let islands = coastlines[100..1000].to_vec();
-    let small_islands = coastlines[1000..].to_vec();
+    let big_islands = coastlines[10..1000].to_vec();
+    let islands = coastlines[1000..50000].to_vec();
+    let small_islands = coastlines[50000..].to_vec();
 
     let iterator_objects = [("continents", continents), ("big_islands", big_islands), ("islands", islands), ("small_islands", small_islands)];
     iterator_objects.par_iter().for_each(|file| {
