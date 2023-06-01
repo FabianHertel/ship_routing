@@ -6,7 +6,7 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
+    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("complete");
     println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
 
     println!("2/?: Precalculations for islands/continents ...");
@@ -29,45 +29,77 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     let now = SystemTime::now();
     println!("Point on land (Mid of pacific): {}", point_in_polygon_test(-144.1294183409396, -47.75776979131451, &islands));      //Antarctica
     println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    let now = SystemTime::now();
+    println!("Point on land (Russia): {}", point_in_polygon_test(82.35471714457248, 52.4548566256728, &islands));      //Antarctica
+    println!("Finished test in {} millis", now.elapsed()?.as_millis());
+
 
     Ok(())
+}
+
+struct Coordinates(f64, f64);
+
+impl Coordinates {
+    fn from_vec(vector: Vec<f64>) -> Coordinates {
+        return Coordinates(vector[0], vector[1])
+    }
+}
+
+impl std::fmt::Display for Coordinates {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {}", self.0, self.1)
+    }
+}
+
+impl Clone for Coordinates {
+    fn clone(&self) -> Self {
+        Coordinates(self.0, self.1)
+    }
 }
 
 /**
  * bounding box: [[min_lon, max_lon], [min_lat, max_lat]]
  */
 struct Island {
-    coastline: Vec<Vec<f64>>,
-    bounding_box: [[f64; 2]; 2],
-    reference_points: Vec<Vec<f64>>,
+    coastline: Vec<Coordinates>,
+    bounding_box: [Coordinates; 2],
+    reference_points: Vec<Coordinates>,
     max_dist_from_ref: f64
+}
+
+impl std::fmt::Display for Island {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Islandcenter: ({})", self.reference_points[0])
+    }
 }
 
 impl Island {
     fn new(coastline: Vec<Vec<f64>>) -> Island {
-        let mut cog = [0.0, 0.0];
-        let mut bounding_box = [[180.0, -180.0], [90.0, -90.0]];
-        for point in &coastline {
-            if point[0] < bounding_box[0][0] {
-                bounding_box[0][0] = point[0];
-            } if point[0] > bounding_box[0][1] {
-                bounding_box[0][1] = point[0];
-            } if point[1] < bounding_box[1][0] {
-                bounding_box[1][0] = point[1];
-            } if point[1] > bounding_box[1][1] {
-                bounding_box[1][1] = point[1];
+        let mut cog = Coordinates(0.0, 0.0);
+        let mut bounding_box = [Coordinates(180.0, -180.0), Coordinates(90.0, -90.0)];
+        let mut coastline_formatted: Vec<Coordinates> = vec![];
+        for point in coastline {
+            if point[0] < bounding_box[0].0 {
+                bounding_box[0].0 = point[0];
+            } if point[0] > bounding_box[0].1 {
+                bounding_box[0].1 = point[0];
+            } if point[1] < bounding_box[1].0 {
+                bounding_box[1].0 = point[1];
+            } if point[1] > bounding_box[1].1 {
+                bounding_box[1].1 = point[1];
             }
-            cog = [cog[0] + point[0], cog[1] + point[1]];
+            (cog.0, cog.1) = (cog.0 + point[0], cog.1 + point[1]);
+            coastline_formatted.push(Coordinates::from_vec(point));
         }
-        let n = coastline.len().to_owned() as f64;
-        cog = [cog[0] / n, cog[1] / n];
+        let n = coastline_formatted.len().to_owned() as f64;
+        (cog.0, cog.1) = (cog.0 / n, cog.1 / n);
 
-        let mut reference_points = vec![cog.to_vec()];
-        let mut most_far_away_point: &Vec<f64> = &vec![];
+        let mut reference_points = vec![cog.clone()];
+        let mut most_far_away_point = &Coordinates(0.0, 0.0);
         let mut max_dist_from_ref = 0.0;
         let mut distance_sum = 0.0;
-        for point in &coastline {
-            let distance = distance_between(point, &cog.to_vec());
+        for point in &coastline_formatted {
+            let distance = distance_between(&point, &cog);
             distance_sum += distance;
             if distance > max_dist_from_ref {
                 most_far_away_point = point;
@@ -76,14 +108,14 @@ impl Island {
         }
         
         // calculate more reference points (additional to cog) to get shorter max distances
-        let mut refpoint_most_far_away = cog.to_vec();
-        while max_dist_from_ref > 1000.0 && (distance_sum / coastline.len() as f64) < 0.5 * max_dist_from_ref {
-            let new_refpoint = vec![(refpoint_most_far_away[0] + most_far_away_point[0]) / 2.0, (refpoint_most_far_away[1] + most_far_away_point[1]) / 2.0];
-            print!("Dist: {}, with average: {} -> Generated {}, {}", max_dist_from_ref, (distance_sum / coastline.len() as f64), new_refpoint[0], new_refpoint[1]);
+        let mut refpoint_most_far_away = cog;
+        while max_dist_from_ref > 1000.0 && (distance_sum / coastline_formatted.len() as f64) < 0.5 * max_dist_from_ref {
+            let new_refpoint = Coordinates((refpoint_most_far_away.0 + most_far_away_point.0) / 2.0, (refpoint_most_far_away.1 + most_far_away_point.1) / 2.0);
+            print!("Dist: {}, with average: {} -> Generated {}, {}", max_dist_from_ref, (distance_sum / coastline_formatted.len() as f64), new_refpoint.0, new_refpoint.1);
             reference_points.push(new_refpoint);
             distance_sum = 0.0;
             max_dist_from_ref = 0.0;
-            for point in &coastline {
+            for point in &coastline_formatted {
                 let (distance, refpoint) = min_distance(point, &reference_points);
                 distance_sum += distance;
                 if distance > max_dist_from_ref {
@@ -92,11 +124,11 @@ impl Island {
                     refpoint_most_far_away = refpoint;
                 }
             }
-            println!("; new dist: {}, new average: {}", max_dist_from_ref, (distance_sum / coastline.len() as f64));
+            println!("; new dist: {}, new average: {}", max_dist_from_ref, (distance_sum / coastline_formatted.len() as f64));
         }
 
         Island {
-                coastline,
+                coastline: coastline_formatted,
                 bounding_box,
                 reference_points,
                 max_dist_from_ref
@@ -104,7 +136,7 @@ impl Island {
     }
 }
 
-fn min_distance(x: &Vec<f64>, reference_points:&Vec<Vec<f64>>) -> (f64, Vec<f64>) {
+fn min_distance(x: &Coordinates, reference_points:&Vec<Coordinates>) -> (f64, Coordinates) {
     let mut min_distance = 40000.0;
     let mut closest_refpoint = &reference_points[0];
     reference_points.iter().for_each(|reference_point| {
@@ -114,15 +146,15 @@ fn min_distance(x: &Vec<f64>, reference_points:&Vec<Vec<f64>>) -> (f64, Vec<f64>
             closest_refpoint = reference_point;
         }
     });
-    return (min_distance, closest_refpoint.to_owned());
+    return (min_distance, closest_refpoint.clone());
 }
 
-fn distance_between(x: &Vec<f64>, y:&Vec<f64>) -> f64 {
+fn distance_between(x: &Coordinates, y:&Coordinates) -> f64 {
     // from: http://www.movable-type.co.uk/scripts/latlong.html
-    let φ1 = x[1] * PI/180.0; // φ, λ in radians
-    let φ2 = y[1] * PI/180.0;
-    let dφ = (y[1]-x[1]) * PI/180.0;
-    let dλ = (y[0]-x[0]) * PI/180.0;
+    let φ1 = x.1 * PI/180.0; // φ, λ in radians
+    let φ2 = y.1 * PI/180.0;
+    let dφ = (y.1-x.1) * PI/180.0;
+    let dλ = (y.0-x.0) * PI/180.0;
     const EARTH_RADIUS: f64 = 6371.0;
 
     let haversine = (dφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (dλ/2.0).sin().powi(2);
@@ -160,21 +192,21 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
  */
 fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
     for island in polygons {
-        let in_bounding_box = lon > island.bounding_box[0][0] && lon < island.bounding_box[0][1] && lat > island.bounding_box[1][0] && lat < island.bounding_box[1][1];
+        let in_bounding_box = lon > island.bounding_box[0].0 && lon < island.bounding_box[0].1 && lat > island.bounding_box[1].0 && lat < island.bounding_box[1].1;
         if in_bounding_box {
-            let in_range_of_ref_points = min_distance(&vec![lon, lat], &island.reference_points).0 < island.max_dist_from_ref;
+            let in_range_of_ref_points = min_distance(&Coordinates(lon, lat), &island.reference_points).0 < island.max_dist_from_ref;
             if in_range_of_ref_points {
                 let polygon = &island.coastline;
                 let mut in_water = false;
-                // println!("Island center: {}, {}; max_dist_from_cog: {}; point distance: {}, coastline_points: {}", island.reference_points[0][0], island.reference_points[0][1], island.max_dist_from_cog, distance_between(&island.reference_points[0], &vec![lon, lat]), island.coastline.len());
+                // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.max_dist_from_ref, distance_between(&island.reference_points[0], &vec![lon, lat]), island.coastline.len());
                 for j in 1..polygon.len() {       // ignore first point in polygon, because first and last will be the same
-                    if (polygon[j-1][0] > lon) != (polygon[j][0] > lon) {   // check if given lon of point is between start and end point of edge
-                        if (polygon[j-1][1] < lat) && (polygon[j][1] < lat) {     // if both start and end point are south, the going south will cross
+                    if (polygon[j-1].0 > lon) != (polygon[j].0 > lon) {   // check if given lon of point is between start and end point of edge
+                        if (polygon[j-1].1 < lat) && (polygon[j].1 < lat) {     // if both start and end point are south, the going south will cross
                             // println!("Line crossed: {}, {}; {}, {}", polygon[i][0], polygon[i][1], polygon[j][0], polygon[j][1]);
                             in_water = !in_water;
-                        } else if (polygon[j-1][1] < lat) || (polygon[j][1] < lat) {      // if one of start and end point are south, we have to check... (happens rarely for coastline)
-                            let slope = (lat-polygon[j-1][1])*(polygon[j][0]-polygon[j-1][0])-(polygon[j][1]-polygon[j-1][1])*(lon-polygon[j-1][0]);
-                            if (slope < 0.0) != (polygon[j][0] < polygon[j-1][1]) {
+                        } else if (polygon[j-1].1 < lat) || (polygon[j].1 < lat) {      // if one of start and end point are south, we have to check... (happens rarely for coastline)
+                            let slope = (lat-polygon[j-1].1)*(polygon[j].0-polygon[j-1].0)-(polygon[j].1-polygon[j-1].1)*(lon-polygon[j-1].0);
+                            if (slope < 0.0) != (polygon[j].0 < polygon[j-1].1) {
                                 println!("Line crossed (rare case!)");
                                 in_water = !in_water;
                             }
@@ -185,7 +217,7 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
                     return true
                 }
             } else {
-                println!("Ref points saved checking {} edges of this continent: {}, {}!!!", island.coastline.len(), island.reference_points[0][0], island.reference_points[0][1]);
+                println!("Ref points saved checking {} edges of this continent: {}, {}!!!", island.coastline.len(), island.reference_points[0].0, island.reference_points[0].1);
             }
         }
     }
