@@ -84,7 +84,7 @@ impl Island {
             distance_sum = 0.0;
             max_dist_from_ref = 0.0;
             for point in &coastline {
-                let (distance, refpoint) = calculate_min_distance(point, reference_points.to_owned());
+                let (distance, refpoint) = min_distance(point, &reference_points);
                 distance_sum += distance;
                 if distance > max_dist_from_ref {
                     most_far_away_point = point;
@@ -102,16 +102,9 @@ impl Island {
                 max_dist_from_ref
             }
     }
-
-    fn in_range(&self, x: &Vec<f64>) -> bool {
-        if x[0] > self.bounding_box[0][0] && x[0] < self.bounding_box[0][1] && x[1] > self.bounding_box[1][0] && x[1] < self.bounding_box[1][1] {
-            return calculate_min_distance(x, self.reference_points.to_owned()).0 < self.max_dist_from_ref;
-        }
-        return false;
-    }
 }
 
-fn calculate_min_distance(x: &Vec<f64>, reference_points:Vec<Vec<f64>>) -> (f64, Vec<f64>) {
+fn min_distance(x: &Vec<f64>, reference_points:&Vec<Vec<f64>>) -> (f64, Vec<f64>) {
     let mut min_distance = 40000.0;
     let mut closest_refpoint = &reference_points[0];
     reference_points.iter().for_each(|reference_point| {
@@ -166,29 +159,33 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
  * Note: South pole seems to marked as water in OSM. Antartica seems to end there.
  */
 fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
-
     for island in polygons {
-        if island.in_range(&vec![lon, lat]) {
-            let polygon = &island.coastline;
-            let mut in_water = false;
-            // println!("Island center: {}, {}; max_dist_from_cog: {}; point distance: {}, coastline_points: {}", island.reference_points[0][0], island.reference_points[0][1], island.max_dist_from_cog, distance_between(&island.reference_points[0], &vec![lon, lat]), island.coastline.len());
-            for j in 1..polygon.len() {       // ignore first point in polygon, because first and last will be the same
-                let i = j - 1;
-                if (polygon[i][0] > lon) != (polygon[j][0] > lon) {   // check if given point has lon between start and end point of edge
-                    if (polygon[i][1] < lat) && (polygon[j][1] < lat) {     // if both start and end point are south, the going south will cross
-                        // println!("Line crossed: {}, {}; {}, {}", polygon[i][0], polygon[i][1], polygon[j][0], polygon[j][1]);
-                        in_water = !in_water;
-                    } else if (polygon[i][1] < lat) || (polygon[j][1] < lat) {      // if one of start and end point are south, we have to check... (happens rarely for coastline)
-                        let slope = (lat-polygon[i][1])*(polygon[j][0]-polygon[i][0])-(polygon[j][1]-polygon[i][1])*(lon-polygon[i][0]);
-                        if (slope < 0.0) != (polygon[j][0] < polygon[i][1]) {
-                            println!("Line crossed (rare case!)");
+        let in_bounding_box = lon > island.bounding_box[0][0] && lon < island.bounding_box[0][1] && lat > island.bounding_box[1][0] && lat < island.bounding_box[1][1];
+        if in_bounding_box {
+            let in_range_of_ref_points = min_distance(&vec![lon, lat], &island.reference_points).0 < island.max_dist_from_ref;
+            if in_range_of_ref_points {
+                let polygon = &island.coastline;
+                let mut in_water = false;
+                // println!("Island center: {}, {}; max_dist_from_cog: {}; point distance: {}, coastline_points: {}", island.reference_points[0][0], island.reference_points[0][1], island.max_dist_from_cog, distance_between(&island.reference_points[0], &vec![lon, lat]), island.coastline.len());
+                for j in 1..polygon.len() {       // ignore first point in polygon, because first and last will be the same
+                    if (polygon[j-1][0] > lon) != (polygon[j][0] > lon) {   // check if given lon of point is between start and end point of edge
+                        if (polygon[j-1][1] < lat) && (polygon[j][1] < lat) {     // if both start and end point are south, the going south will cross
+                            // println!("Line crossed: {}, {}; {}, {}", polygon[i][0], polygon[i][1], polygon[j][0], polygon[j][1]);
                             in_water = !in_water;
+                        } else if (polygon[j-1][1] < lat) || (polygon[j][1] < lat) {      // if one of start and end point are south, we have to check... (happens rarely for coastline)
+                            let slope = (lat-polygon[j-1][1])*(polygon[j][0]-polygon[j-1][0])-(polygon[j][1]-polygon[j-1][1])*(lon-polygon[j-1][0]);
+                            if (slope < 0.0) != (polygon[j][0] < polygon[j-1][1]) {
+                                println!("Line crossed (rare case!)");
+                                in_water = !in_water;
+                            }
                         }
                     }
                 }
-            }
-            if in_water {
-                return true
+                if in_water {
+                    return true
+                }
+            } else {
+                println!("Ref points saved checking {} edges of this continent: {}, {}!!!", island.coastline.len(), island.reference_points[0][0], island.reference_points[0][1]);
             }
         }
     }
