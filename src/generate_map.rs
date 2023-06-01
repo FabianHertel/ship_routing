@@ -33,19 +33,30 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/**
+ * bounding box: [[min_lon, max_lon], [min_lat, max_lat]]
+ */
 struct Island {
-    #[allow(dead_code)]
-        coastline: Vec<Vec<f64>>,
-        cog: Vec<f64>,
-        max_dist_from_cog: f64,
-        reference_points: Vec<Vec<f64>>,
-        max_dist_from_ref: f64
-    }
+    coastline: Vec<Vec<f64>>,
+    bounding_box: [[f64; 2]; 2],
+    reference_points: Vec<Vec<f64>>,
+    max_dist_from_ref: f64
+}
 
 impl Island {
     fn new(coastline: Vec<Vec<f64>>) -> Island {
         let mut cog = [0.0, 0.0];
+        let mut bounding_box = [[180.0, -180.0], [90.0, -90.0]];
         for point in &coastline {
+            if point[0] < bounding_box[0][0] {
+                bounding_box[0][0] = point[0];
+            } if point[0] > bounding_box[0][1] {
+                bounding_box[0][1] = point[0];
+            } if point[1] < bounding_box[1][0] {
+                bounding_box[1][0] = point[1];
+            } if point[1] > bounding_box[1][1] {
+                bounding_box[1][1] = point[1];
+            }
             cog = [cog[0] + point[0], cog[1] + point[1]];
         }
         let n = coastline.len().to_owned() as f64;
@@ -53,17 +64,16 @@ impl Island {
 
         let mut reference_points = vec![cog.to_vec()];
         let mut most_far_away_point: &Vec<f64> = &vec![];
-        let mut max_dist_from_cog = 0.0;
+        let mut max_dist_from_ref = 0.0;
         let mut distance_sum = 0.0;
         for point in &coastline {
             let distance = distance_between(point, &cog.to_vec());
             distance_sum += distance;
-            if distance > max_dist_from_cog {
+            if distance > max_dist_from_ref {
                 most_far_away_point = point;
-                max_dist_from_cog = distance;
+                max_dist_from_ref = distance;
             }
         }
-        let mut max_dist_from_ref = max_dist_from_cog;
         
         // calculate more reference points (additional to cog) to get shorter max distances
         let mut refpoint_most_far_away = cog.to_vec();
@@ -87,15 +97,14 @@ impl Island {
 
         Island {
                 coastline,
-                cog: cog.to_vec(),
-                max_dist_from_cog,
+                bounding_box,
                 reference_points,
                 max_dist_from_ref
             }
     }
 
     fn in_range(&self, x: &Vec<f64>) -> bool {
-        if distance_between(x, &self.cog) < self.max_dist_from_cog {
+        if x[0] > self.bounding_box[0][0] && x[0] < self.bounding_box[0][1] && x[1] > self.bounding_box[1][0] && x[1] < self.bounding_box[1][1] {
             return calculate_min_distance(x, self.reference_points.to_owned()).0 < self.max_dist_from_ref;
         }
         return false;
