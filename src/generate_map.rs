@@ -2,6 +2,8 @@ use std::{time::SystemTime, fs, error::Error, f64::consts::PI};
 use geojson::{GeoJson, Geometry, Value};
 use rayon::prelude::*;
 
+use crate::datastructs::Coordinates;
+
 pub fn generate_map() -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
@@ -38,30 +40,10 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-struct Coordinates(f64, f64);
-
-impl Coordinates {
-    fn from_vec(vector: &Vec<f64>) -> Coordinates {
-        return Coordinates(vector[0], vector[1])
-    }
-}
-
-impl std::fmt::Display for Coordinates {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}, {}]", self.0, self.1)
-    }
-}
-
-impl Clone for Coordinates {
-    fn clone(&self) -> Self {
-        Coordinates(self.0, self.1)
-    }
-}
-
 /**
  * bounding box: [[min_lon, max_lon], [min_lat, max_lat]]
  */
-struct Island {
+pub struct Island {
     coastline: Vec<Coordinates>,
     bounding_box: [[f64;2]; 2],
     reference_points: Vec<Coordinates>,
