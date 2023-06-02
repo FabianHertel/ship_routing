@@ -215,12 +215,13 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
 /**
  * This method will check, the given point is inside water.
  * If so, true will be returned.
- * This will be done by checking how many coastlines will be crossed going to the southpole.
+ * This will be done by checking how many coastlines will be crossed going to the northpole.
  * We consider the earth as a 2D map with (x,y) = (lon, lat).
- * So the southpole has the same width as the equator, which is fine for this algorithm.
- * From the given point we check how many coastlines are crossed going straight south.
+ * So the northpole has the same width as the equator, which is fine for this algorithm since coastlines are short.
+ * According to our measurements of the coastlines with the table from https://dataverse.jpl.nasa.gov/dataset.xhtml?persistentId=hdl:2014/41271 there is a maximum error of single meters.
+ * From the given point we check how many coastlines are crossed going straight north.
  * If it is even, we are in the sea. If odd, we are on land.
- * Note: South pole seems to marked as water in OSM. Antartica seems to end there.
+ * Note: Antartica avoids -180 to 180 edge, so coastline goes to the southpole and around it.
  */
 fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
     for island in polygons {
@@ -228,11 +229,10 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
         if in_bounding_box {
             let in_range_of_ref_points = min_distance(&Coordinates(lon, lat), &island.reference_points).0 < island.max_dist_from_ref;
             if in_range_of_ref_points {
-                println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.max_dist_from_ref, distance_between(&island.reference_points[0], &Coordinates(lon, lat)), island.coastline.len());
+                // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.max_dist_from_ref, distance_between(&island.reference_points[0], &Coordinates(lon, lat)), island.coastline.len());
                 let mut in_water = false;
                 let polygon = &island.coastline;
                 if island.lon_distribution.len() > 0 {
-                    println!("Use lon distr");
                     let index_in_lon_distr = ((lon - island.bounding_box[0][0]) / island.lon_distribution_distance).floor() as usize;
                     let mut last_point_i: usize = 0;
                     for point_i in &island.lon_distribution[index_in_lon_distr] {
