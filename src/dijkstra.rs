@@ -6,11 +6,11 @@ pub fn run_dijkstra(src_coordinates: Coordinates, tgt_coordinates: Coordinates) 
     // let graph = &import_graph("./bremen-latest.fmibin")?;
 
     let graph = &Graph{
-        nodes: vec![Node{id:1, lon: 0.0, lat: 0.0},Node{id:2, lon: 1.0, lat: 0.0},Node{id:3, lon: 0.0, lat: 1.0}, Node{id:0, lon: 1.0, lat: 1.0}],
-        edges: vec![Edge{src:1, tgt:2, dist: 5.0}, Edge{src:1, tgt:3, dist: 2.0},Edge{src:2, tgt:0, dist: 1.0}, Edge{src:2, tgt:3, dist: 7.0},
-            Edge{src:2, tgt:1, dist: 5.0}, Edge{src:3, tgt:1, dist: 2.0}, Edge{src:3, tgt:0, dist: 3.0}, Edge{src:3, tgt:2, dist: 7.0},
-            Edge{src:0, tgt:2, dist: 1.0}, Edge{src:0, tgt:3, dist: 3.0}],
-        offsets: vec![0, 2, 6, 8, 10]
+        nodes: vec![Node{id:0, lon: 1.0, lat: 1.0}, Node{id:1, lon: 0.0, lat: 0.0},Node{id:2, lon: 1.0, lat: 0.0},Node{id:3, lon: 0.0, lat: 1.0}],
+        edges: vec![Edge{src:0, tgt:2, dist: 1.0}, Edge{src:0, tgt:3, dist: 3.0}, 
+            Edge{src:1, tgt:2, dist: 8.0}, Edge{src:1, tgt:3, dist: 2.0},Edge{src:2, tgt:0, dist: 1.0}, Edge{src:2, tgt:3, dist: 7.0},
+            Edge{src:2, tgt:1, dist: 8.0}, Edge{src:3, tgt:1, dist: 2.0}, Edge{src:3, tgt:0, dist: 3.0}, Edge{src:3, tgt:2, dist: 7.0}],
+        offsets: vec![0, 2, 4, 7, 10]
     };
 
     let (src_node, tgt_node) = (graph.closest_node(&src_coordinates), graph.closest_node(&tgt_coordinates));
@@ -26,6 +26,8 @@ pub fn run_dijkstra(src_coordinates: Coordinates, tgt_coordinates: Coordinates) 
             process_edges(graph, node_id, &mut result, &mut pq);
         }
     }
+
+    println!("Graph: {:?}", result);
 
     Ok(result.result_of(graph, tgt_node.id))
 }
@@ -57,6 +59,7 @@ fn process_edges(graph: &Graph, node_id: usize, result: &mut DijkstraResult, pq:
 }
 
 
+#[derive(Debug)]
 pub struct DijkstraResult {
     dists: Vec<f64>,
     preds: Vec<usize>,
