@@ -5,6 +5,7 @@ mod import_pbf;
 mod generate_map;
 mod dijkstra;
 mod datastructs;
+mod binary_minheap_alex;
 
 use crate::datastructs::Coordinates;
 use crate::dijkstra::run_dijkstra;
@@ -57,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .ok_or("specify end coodinates lon,lat")?;
             let source_coordinats = Coordinates::from_str(source_coordinates_str.to_str().unwrap());
             let target_coordinats = Coordinates::from_str(target_coordinates_str.to_str().unwrap());
-            run_dijkstra(source_coordinats, target_coordinats);
+            run_dijkstra(source_coordinats, target_coordinats)?;
         }
         Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),
         None => println!("need to specify the command, {}", COMMANDS),

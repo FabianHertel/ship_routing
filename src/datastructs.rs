@@ -24,26 +24,26 @@ impl Clone for Coordinates {
 }
 
 /// Result of a shortest path algorithm
-pub struct ShortestPath<'a>(usize, Vec<&'a Node>);
+pub struct ShortestPath(f64, Vec<Node>);
 
-impl<'a> ShortestPath<'a> {
+impl ShortestPath {
     /// Creates a new node result with distance `dist` and path `path` to the associated node
-    pub fn new(dist: usize, path: Vec<&'a Node>) -> Self {
+    pub fn new(dist: f64, path: Vec<Node>) -> Self {
         Self(dist, path)
     }
 
     /// Returns the distance to the associated node
-    pub fn dist(&self) -> usize {
+    pub fn dist(&self) -> f64 {
         self.0
     }
 
     /// Returns the path from the source node to the associated node
-    pub fn path(&self) -> &Vec<&'a Node> {
+    pub fn path(&self) -> &Vec<Node> {
         &self.1
     }
 
     /// Consumes the path from the source node to the associated node
-    pub fn consume_path(self) -> Vec<&'a Node> {
+    pub fn consume_path(self) -> Vec<Node> {
         self.1
     }
 }
@@ -51,15 +51,35 @@ impl<'a> ShortestPath<'a> {
 /// An undirected graph
 pub struct Graph {
     nodes: Vec<Node>,
-    pub edges: Vec<Edge>
+    pub edges: Vec<Edge>,
+    pub offsets: Vec<usize>,
 }
+
 impl Graph {
-    pub(crate) fn closest_node(&self, coordinates: Coordinates) -> &Node {
+    pub fn closest_node(&self, coordinates: Coordinates) -> &Node {
         todo!()
+    }
+    
+    /// Get the node with id `node_id`
+    pub fn get_node(&self, node_id: usize) -> &Node {
+        &self.nodes[node_id]
+    }
+
+    pub fn n_nodes(&self) -> usize {
+        return self.nodes.len();
+    }
+
+    pub fn n_edges(&self) -> usize {
+        return self.edges.len();
+    }
+
+    /// Get all outgoing edges of a particular node
+    pub fn get_outgoing_edges(&self, node_id: usize) -> &[Edge] {
+        &self.edges[self.offsets[node_id]..self.offsets[node_id + 1]]
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
     pub id: usize,
     pub lat: f64,
