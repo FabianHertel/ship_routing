@@ -7,7 +7,7 @@ mod dijkstra;
 mod datastructs;
 mod binary_minheap_alex;
 
-use crate::datastructs::Coordinates;
+use crate::datastructs::{Coordinates};
 use crate::dijkstra::run_dijkstra;
 use crate::import_pbf::{import_pbf, print_geojson};
 use crate::generate_map::{generate_map, read_geojsons};
@@ -51,14 +51,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some("generate") => {
             generate_map()?;
         }
-        Some("run") => {
+        Some("dijkstra") => {
             let source_coordinates_str = std::env::args_os().nth(2)
                 .ok_or("specify start coodinates lon,lat")?;
             let target_coordinates_str = std::env::args_os().nth(3)
                 .ok_or("specify end coodinates lon,lat")?;
             let source_coordinats = Coordinates::from_str(source_coordinates_str.to_str().unwrap());
             let target_coordinats = Coordinates::from_str(target_coordinates_str.to_str().unwrap());
-            run_dijkstra(source_coordinats, target_coordinats)?;
+            match run_dijkstra(source_coordinats, target_coordinats)? {
+                Some(path) => println!("Pfad: {:?}, Länge: {}", path.path(), path.dist()),
+                None => println!("No path found")
+            }
         }
         Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),
         None => println!("need to specify the command, {}", COMMANDS),

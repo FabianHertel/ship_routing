@@ -1,12 +1,20 @@
-use std::{error::Error};
-
-use crate::{datastructs::{Coordinates, ShortestPath, Graph, Node}, binary_minheap_alex::BinaryMinHeap};
+use std::error::Error;
+use crate::{datastructs::{Coordinates, ShortestPath, Graph, Node, Edge}, binary_minheap_alex::BinaryMinHeap};
 
 /// Run a Dijkstra from the source coodinates to the target coordinates
 pub fn run_dijkstra(src_coordinates: Coordinates, tgt_coordinates: Coordinates) -> Result<Option<ShortestPath>, Box<dyn Error>> {
-    let graph = &import_graph();
+    // let graph = &import_graph("./bremen-latest.fmibin")?;
 
-    let (src_node, tgt_node) = (graph.closest_node(src_coordinates), graph.closest_node(tgt_coordinates));
+    let graph = &Graph{
+        nodes: vec![Node{id:1, lon: 0.0, lat: 0.0},Node{id:2, lon: 1.0, lat: 0.0},Node{id:3, lon: 0.0, lat: 1.0}, Node{id:0, lon: 1.0, lat: 1.0}],
+        edges: vec![Edge{src:1, tgt:2, dist: 5.0}, Edge{src:1, tgt:3, dist: 2.0},Edge{src:2, tgt:0, dist: 1.0}, Edge{src:2, tgt:3, dist: 7.0},
+            Edge{src:2, tgt:1, dist: 5.0}, Edge{src:3, tgt:1, dist: 2.0}, Edge{src:3, tgt:0, dist: 3.0}, Edge{src:3, tgt:2, dist: 7.0},
+            Edge{src:0, tgt:2, dist: 1.0}, Edge{src:0, tgt:3, dist: 3.0}],
+        offsets: vec![0, 2, 6, 8, 10]
+    };
+
+    let (src_node, tgt_node) = (graph.closest_node(&src_coordinates), graph.closest_node(&tgt_coordinates));
+    println!("start: {:?}, end: {:?}", src_node, tgt_node);
 
     let (mut result, mut pq) = init_result_and_pq(graph, src_node.id);
 
@@ -21,11 +29,6 @@ pub fn run_dijkstra(src_coordinates: Coordinates, tgt_coordinates: Coordinates) 
 
     Ok(result.result_of(graph, tgt_node.id))
 }
-
-fn import_graph() -> Graph {
-    todo!()
-}
-
 
 /// Initialize the `DijkstraResult` instance and the priority queue for a run of the Dijkstra algorithm
 fn init_result_and_pq(graph: &Graph, src_id: usize) -> (DijkstraResult, BinaryMinHeap) {
@@ -52,6 +55,7 @@ fn process_edges(graph: &Graph, node_id: usize, result: &mut DijkstraResult, pq:
         }
     }
 }
+
 
 pub struct DijkstraResult {
     dists: Vec<f64>,

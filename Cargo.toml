@@ -12,3 +12,5 @@ edition = "2021"    # rust edition
 osmpbf = "0.2"
 geojson ="*"
 rayon = "1.7.0"
+log = "0.4.18"
+serde = "1.0.163"

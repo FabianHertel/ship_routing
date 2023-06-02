@@ -1,4 +1,4 @@
-use std::{time::SystemTime, fs, error::Error, f64::consts::PI};
+use std::{time::SystemTime, fs, error::Error};
 use geojson::{GeoJson, Geometry, Value};
 use rayon::prelude::*;
 
@@ -99,7 +99,7 @@ impl Island {
         let mut max_dist_from_ref = 0.0;
         let mut distance_sum = 0.0;
         for i in 0..coastline_formatted.len() {
-            let distance = distance_between(&coastline_formatted[i], &cog);
+            let distance = coastline_formatted[i].distance_to(&cog);
             distance_sum += distance;
             if distance > max_dist_from_ref {
                 most_far_away_point = &coastline_formatted[i];
@@ -154,26 +154,13 @@ fn min_distance(x: &Coordinates, reference_points:&Vec<Coordinates>) -> (f64, Co
     let mut min_distance = 40000.0;
     let mut closest_refpoint = &reference_points[0];
     reference_points.iter().for_each(|reference_point| {
-        let distance = distance_between(x, reference_point);
+        let distance = x.distance_to(reference_point);
         if distance < min_distance {
             min_distance = distance;
             closest_refpoint = reference_point;
         }
     });
     return (min_distance, closest_refpoint.clone());
-}
-
-fn distance_between(x: &Coordinates, y:&Coordinates) -> f64 {
-    // from: http://www.movable-type.co.uk/scripts/latlong.html
-    let φ1 = x.1 * PI/180.0; // φ, λ in radians
-    let φ2 = y.1 * PI/180.0;
-    let dφ = (y.1-x.1) * PI/180.0;
-    let dλ = (y.0-x.0) * PI/180.0;
-    const EARTH_RADIUS: f64 = 6371.0;
-
-    let haversine = (dφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (dλ/2.0).sin().powi(2);
-    let distance = EARTH_RADIUS * 2.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
-    return distance;
 }
 
 pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {

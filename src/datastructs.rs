@@ -1,4 +1,9 @@
 
+use std::f64::consts::PI;
+
+use serde::{Serialize, Deserialize};
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct Coordinates(pub f64, pub f64);
 
 impl Coordinates {
@@ -9,17 +14,28 @@ impl Coordinates {
         let split:Vec<&str> = str.split(",").collect();
         return Coordinates(split[0].parse::<f64>().unwrap(), split[1].parse::<f64>().unwrap());
     }
+
+    pub fn distance_to(&self, y: &Coordinates) -> f64 {
+        return distance_between(self.0, self.1, y.0, y.1);
+    }
+}
+
+pub fn distance_between(lon1:f64, lat1:f64, lon2:f64, lat2:f64) -> f64 {
+    // from: http://www.movable-type.co.uk/scripts/latlong.html
+    let φ1 = lat1 * PI/180.0; // φ, λ in radians
+    let φ2 = lat2 * PI/180.0;
+    let dφ = (lat2-lat1) * PI/180.0;
+    let dλ = (lon2-lon1) * PI/180.0;
+    const EARTH_RADIUS: f64 = 6371.0;
+
+    let haversine = (dφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (dλ/2.0).sin().powi(2);
+    let distance = EARTH_RADIUS * 2.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
+    return distance;
 }
 
 impl std::fmt::Display for Coordinates {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}, {}]", self.0, self.1)
-    }
-}
-
-impl Clone for Coordinates {
-    fn clone(&self) -> Self {
-        Coordinates(self.0, self.1)
     }
 }
 
@@ -41,23 +57,27 @@ impl ShortestPath {
     pub fn path(&self) -> &Vec<Node> {
         &self.1
     }
-
-    /// Consumes the path from the source node to the associated node
-    pub fn consume_path(self) -> Vec<Node> {
-        self.1
-    }
 }
 
 /// An undirected graph
 pub struct Graph {
-    nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
     pub offsets: Vec<usize>,
 }
 
 impl Graph {
-    pub fn closest_node(&self, coordinates: Coordinates) -> &Node {
-        todo!()
+    pub fn closest_node(&self, point: &Coordinates) -> &Node {
+        let mut closest_node = &self.nodes[0];
+        let mut closest_dist = f64::MAX;
+        for node in &self.nodes {
+            let distance = node.distance_to(point);
+            if distance < closest_dist {
+                closest_node = node;
+                closest_dist = distance;
+            }
+        }
+        return closest_node;
     }
     
     /// Get the node with id `node_id`
@@ -69,6 +89,7 @@ impl Graph {
         return self.nodes.len();
     }
 
+    #[allow(dead_code)]
     pub fn n_edges(&self) -> usize {
         return self.edges.len();
     }
@@ -79,14 +100,20 @@ impl Graph {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct Node {
     pub id: usize,
-    pub lat: f64,
-    pub lon: f64
+    pub lon: f64,
+    pub lat: f64
 }
 
-#[derive(Clone, Copy)]
+impl Node {
+    pub fn distance_to(&self, y: &Coordinates) -> f64 {
+        return distance_between(self.lon, self.lat, y.0, y.1);
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct Edge {
     /// The id of the edge's source node
     pub src: usize,
