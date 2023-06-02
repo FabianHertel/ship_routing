@@ -44,11 +44,20 @@ pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str, reduce: b
         coastlines = reduces_coastlines(coastlines);
     }
 
-    // only good match for the blue planet earth
-    let continents = coastlines[..10].to_vec();
-    let big_islands = coastlines[10..1000].to_vec();
-    let islands = coastlines[1000..20000].to_vec();
-    let small_islands = coastlines[20000..].to_vec();
+    const N_CONTINENTS: usize = 10;
+    const N_BIG_ISLANDS: usize = 1000;
+    const N_ISLANDS: usize = 20000;
+
+    let continents = if coastlines.len() > N_CONTINENTS {coastlines[..N_CONTINENTS].to_vec()} else {coastlines[..coastlines.len()].to_vec()};
+    let big_islands = if coastlines.len() < N_CONTINENTS {vec![]} else {
+        if coastlines.len() > N_BIG_ISLANDS {coastlines[N_CONTINENTS..N_BIG_ISLANDS].to_vec()} else {coastlines[N_CONTINENTS..coastlines.len()].to_vec()}
+    };
+    let islands = if coastlines.len() < N_BIG_ISLANDS {vec![]} else {
+        if coastlines.len() > N_ISLANDS {coastlines[N_BIG_ISLANDS..N_ISLANDS].to_vec()} else {coastlines[N_BIG_ISLANDS..coastlines.len()].to_vec()}
+    };
+    let small_islands = if coastlines.len() < N_ISLANDS {vec![]} else {
+        coastlines[N_ISLANDS..coastlines.len()].to_vec()
+    };
 
     let iterator_objects = [("continents", continents), ("big_islands", big_islands), ("islands", islands), ("small_islands", small_islands)];
     iterator_objects.par_iter().for_each(|file| {
