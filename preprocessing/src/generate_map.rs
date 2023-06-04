@@ -1,17 +1,16 @@
-use std::{time::SystemTime, fs::{self, File}, error::Error, io::{Write, BufReader}, ops::Index};
+use std::{time::SystemTime, fs::{self, File}, error::Error, io::{Write}};
 use geojson::{GeoJson, Geometry, Value};
-use rayon::{prelude::*, vec};
+use rayon::{prelude::*};
 use rand::Rng;
 
 use crate::coordinates::{Coordinates};
 use crate::graph::{Node, Edge};
-use crate::graph::import_graph_from_file;
 
 pub fn generate_map() -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let mut coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
+    let mut coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("complete");
     coastlines.sort_by(|a,b| b.len().cmp(&a.len()));
     println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
 
@@ -20,29 +19,33 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
     let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
     println!("2/?: Finished precalculations in {} sek", now.elapsed()?.as_secs());
 
-    let points = random_points_on_sphere(&islands);
-    let filepath = "./graph.txt";
-    let graph = import_graph_from_file(filepath).expect("Error importing Graph from file");
+    println!("3/?: Graph generation ...");
+    let now = SystemTime::now();
+    random_points_on_sphere(&islands);
+    println!("3/?: Finished generating Graph and writing into file after {} sek", now.elapsed()?.as_secs());
+
+    // let filepath = "./graph.txt";
+    // let graph = import_graph_from_file(filepath).expect("Error importing Graph from file");
 
 
-    let now = SystemTime::now();
-    println!("Point on land (Atlantic): {}", point_in_polygon_test(0.0,0.0, &islands));     // Atlantic
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!("Point on land (US): {}", point_in_polygon_test(-104.2758092369033, 34.117786526143604, &islands));      //US
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!("Point on land (Arktis): {}", point_in_polygon_test(-27.24044854389621, 70.01752410356319, &islands));       // North of Grönland
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!("Point on land (Antarctica): {}", point_in_polygon_test(71.55, -74.1878186, &islands));      //Antarctica
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!("Point on land (Mid of pacific): {}", point_in_polygon_test(-144.1294183409396, -47.75776979131451, &islands));
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!("Point on land (Russia): {}", point_in_polygon_test(82.35471714457248, 52.4548566256728, &islands));
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    // let now = SystemTime::now();
+    // println!("Point on land (Atlantic): {}", point_in_polygon_test(0.0,0.0, &islands));     // Atlantic
+    // println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    // let now = SystemTime::now();
+    // println!("Point on land (US): {}", point_in_polygon_test(-104.2758092369033, 34.117786526143604, &islands));      //US
+    // println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    // let now = SystemTime::now();
+    // println!("Point on land (Arktis): {}", point_in_polygon_test(-27.24044854389621, 70.01752410356319, &islands));       // North of Grönland
+    // println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    // let now = SystemTime::now();
+    // println!("Point on land (Antarctica): {}", point_in_polygon_test(71.55, -74.1878186, &islands));      //Antarctica
+    // println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    // let now = SystemTime::now();
+    // println!("Point on land (Mid of pacific): {}", point_in_polygon_test(-144.1294183409396, -47.75776979131451, &islands));
+    // println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    // let now = SystemTime::now();
+    // println!("Point on land (Russia): {}", point_in_polygon_test(82.35471714457248, 52.4548566256728, &islands));
+    // println!("Finished test in {} millis", now.elapsed()?.as_millis());
 
 
     Ok(())
@@ -293,51 +296,55 @@ fn random_points_on_sphere(polygons: &Vec<Island>) -> () {
     let max_distance = 30.0;
     
     while counter < 1000000{
-            x = 0.0;
-            y = 0.0;
-            z = 0.0;
-            
-            while ((x*x + y*y + z*z).sqrt()) < 0.001 {            
-                x = rng.gen_range(-1.0..1.0);
-                y = rng.gen_range(-1.0..1.0);
-                z = rng.gen_range(-1.0..1.0);
-            }
-            let norm = (x*x + y*y + z*z).sqrt();
-            
-            x = x / norm;
-            y = y / norm;
-            z = z / norm;
-            
-            lat = z.asin().to_degrees(); // asin(Z/R)
-            lon = y.atan2(x).to_degrees(); // atan2(y,x)
-            
-            if norm <= 1.0 {
-                if !point_in_polygon_test(lon,lat, polygons) {
-                    new_node = Node{
-                        id : 0,
-                        lat : lat,
-                        lon : lon,
-                    };
-                    
-                    grid[(lon.round() + 180.0 - 1.0) as usize][(lat.round() + 90.0 - 1.0) as usize].push(new_node);
-                    counter = counter +1;
-                    //print!("[{},{}],", lon, lat);
-                }
+        x = 0.0;
+        y = 0.0;
+        z = 0.0;
+        
+        while ((x*x + y*y + z*z).sqrt()) < 0.001 {            
+            x = rng.gen_range(-1.0..1.0);
+            y = rng.gen_range(-1.0..1.0);
+            z = rng.gen_range(-1.0..1.0);
+        }
+        let norm = (x*x + y*y + z*z).sqrt();
+        
+        x = x / norm;
+        y = y / norm;
+        z = z / norm;
+        
+        lat = z.asin().to_degrees(); // asin(Z/R)
+        lon = y.atan2(x).to_degrees(); // atan2(y,x)
+        
+        if norm <= 1.0 {
+            if !point_in_polygon_test(lon,lat, polygons) {
+                new_node = Node{
+                    id : 0,
+                    lat : lat,
+                    lon : lon,
+                };
+                
+                grid[(lon.round() + 180.0 - 1.0) as usize][(lat.round() + 90.0 - 1.0) as usize].push(new_node);
+                counter = counter +1;
+                //print!("[{},{}],", lon, lat);
             }
         }
 
-        // set ids
-        for i in 0..360{
-            for j in 0..180{
-                for k in 0..grid[i][j].len(){
-                    grid[i][j][k].id = id;
-                    points.push(grid[i][j][k].clone());
-                    id = id + 1;
-                }
+        if counter % 10000 == 0 {
+            println!("Generated {} nodes so far.", counter);
+        }
+    }
+
+    // set ids
+    for i in 0..360{
+        for j in 0..180{
+            for k in 0..grid[i][j].len(){
+                grid[i][j][k].id = id;
+                points.push(grid[i][j][k].clone());
+                id = id + 1;
             }
         }
+    }
 
-
+    println!("connect graph nodes");
   
     for i in 0..360{
         for j in 0..180{
@@ -428,14 +435,15 @@ fn random_points_on_sphere(polygons: &Vec<Island>) -> () {
         data = data + &edge.src.to_string() + " " + &edge.tgt.to_string() + " " + &edge.dist.to_string() + "\n";
     }
     
+    println!("Write file");
     let mut f = File::create("graph.txt").expect("Unable to create file");
     f.write_all(data.as_bytes()).expect("unable to write file");
 
- for i in 0..100 {
-     let src = points[edges[i].src];
-     let tgt = points[edges[i].tgt];
- 
-     println!("[ [{},{}], [{},{}] ],", src.lon, src.lat, tgt.lon, tgt.lat);
- }
+    for i in 0..100 {
+        let src = points[edges[i].src];
+        let tgt = points[edges[i].tgt];
+    
+        println!("[ [{},{}], [{},{}] ],", src.lon, src.lat, tgt.lon, tgt.lat);
+    }
 
 }
