@@ -10,7 +10,7 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let mut coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduce");
+    let mut coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
     coastlines.sort_by(|a,b| b.len().cmp(&a.len()));
     println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
 
@@ -85,14 +85,14 @@ impl Island {
             (cog.0, cog.1) = (cog.0 + coastline[i][0], cog.1 + coastline[i][1]);
             if i < coastline.len()-1 && (coastline[i+1][0] - coastline[i][0]).abs() > max_lon_jump {
                 max_lon_jump = (coastline[i+1][0] - coastline[i][0]).abs();
-        }
+            }
             coastline_formatted.push(Coordinates::from_vec(&coastline[i]));
         }
         const MIN_LON_DISTR_DIFF: f64 = 0.2;
         let lon_distribution_distance = max(max_lon_jump, MIN_LON_DISTR_DIFF);
         let n = coastline_formatted.len().to_owned() as f64;
         (cog.0, cog.1) = (cog.0 / n, cog.1 / n);
-
+        
         let mut lon_distribution: Vec<Vec<usize>> = vec![];
         const MIN_SIZE_FOR_LON_DISTR: usize = 1000;
         if coastline.len() > MIN_SIZE_FOR_LON_DISTR && (bounding_box[0][1]-bounding_box[0][0]) > 10.0 * lon_distribution_distance {
@@ -146,8 +146,8 @@ impl Island {
                 lon_distribution,
                 lon_distribution_distance
             }
-            }
     }
+}
 
 fn max(v1: f64, v2: f64) -> f64 {
     if v1 > v2 {
@@ -175,7 +175,7 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
     return  ["continents", "big_islands", "islands", "small_islands"].par_iter().map(|filename| {
         let now = SystemTime::now();
         let filename = prefix.to_owned() + "_" + filename;
-        let geojson_str = fs::read_to_string(format!("../geojson/{filename}.json")).expect(&format!("Unable to read JSON file {}", filename));
+        let geojson_str = fs::read_to_string(format!("./geojson/{filename}.json")).expect("Unable to read JSON file");
         let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap();     // needs much of time (4-5min for world)
         println!("Parsing {} finished after {} sek", filename, now.elapsed().unwrap().as_secs());
         let geometry: Geometry = Geometry::try_from(geojson).unwrap();
@@ -208,7 +208,7 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
             if in_range_of_ref_points {
                 // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.max_dist_from_ref, distance_between(&island.reference_points[0], &Coordinates(lon, lat)), island.coastline.len());
                 let mut in_water = false;
-            let polygon = &island.coastline;
+                let polygon = &island.coastline;
                 if island.lon_distribution.len() > 0 {
                     let index_in_lon_distr = ((lon - island.bounding_box[0][0]) / island.lon_distribution_distance).floor() as usize;
                     let mut last_point_i: usize = 0;
@@ -247,25 +247,25 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
                         last_point_i = *point_i;
                     }
                 } else {
-            for j in 1..polygon.len() {       // ignore first point in polygon, because first and last will be the same
+                    for j in 1..polygon.len() {       // ignore first point in polygon, because first and last will be the same
                         let (start, end) = (&polygon[j-1], &polygon[j]);
                         if (start.0 > lon) != (end.0 > lon) {   // check if given lon of point is between start and end point of edge
                             if (start.1 > lat) && (end.1 > lat) {     // if both start and end point are north, the going north will cross
                                 // println!("Line crossed: {}; {}", start, end);
-                        in_water = !in_water;
+                                in_water = !in_water;
                             } else if (start.1 > lat) || (end.1 > lat) {      // if one of start and end point are south, we have to check... (happens rarely for coastline)
                                 let slope = (lat-start.1)*(end.0-start.0)-(end.1-start.1)*(lon-start.0);
                                 if (slope < 0.0) != (end.0 < start.0) {
                             // println!("Line crossed (rare case!)");
-                            in_water = !in_water;
+                                    in_water = !in_water;
+                                }
+                            }
                         }
                     }
                 }
-            }
+                if in_water {
+                    return true
                 }
-            if in_water {
-                return true
-            }
             } else {
                 //println!("Ref points saved checking {} edges of this continent: {}, {}!!!", island.coastline.len(), island.reference_points[0].0, island.reference_points[0].1);
             }
