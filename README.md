@@ -9,7 +9,6 @@ To run the final application you just have to execute the exe file in .\executio
 ## Compile and run source code
 ### Preprocessing
 navigate into the preprocessing folder
-execute ´cargo install´ to install the packages
 execute ´cargo run import {filename}´ to import a osm (f.e. ´cargo run import ../../planet-coastlinespbf-cleanedosm.pbf´ when placed next to project)
 execute ´cargo run generate´ to generate a graph
 
