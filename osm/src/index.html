@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tauri App</title>
+  <link rel="stylesheet" href="./libs/leaflet/leaflet.css" />
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      height: 800px;
+      width: 800px;
+    }
+
+    /* Map controls and buttons */
+    .leaflet-control-container {
+      position: relative;
+    }
+
+    #map-controls {
+      position: absolute;
+      top: 10px;
+      left: 50px;
+      z-index: 1000;
+    }
+
+    #button-container {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+    }
+
+    .button {
+      padding: 8px 16px;
+      background-color: #f0f0f0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      background-color: #e0e0e0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map">
+    </div>
+  <div id="map-controls">
+  <div id="button-container">
+    <button onclick="route()">Routing</button>
+    <button onclick="reset()">Reset</button>
+  </div>
+</div>
+  <script src="libs/leaflet/leaflet.js"></script>
+  <script>
+    const { invoke } = window.__TAURI__.tauri;
+
+var destination_markers = new Array();
+var shortest_path_polyline = new Array();
+
+var map = L.map('map', {
+  center: [0, 0],
+  zoom: 3
+});
+L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18,
+  attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+    '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+}).addTo(map);
+map.on('click', function (e) {
+  var popLocation = e.latlng;
+  if (destination_markers.length < 2) {
+    let marker = L.marker(popLocation).addTo(map);
+    destination_markers.push(marker);
+  }
+});
+
+async function route() {
+  console.log("Route");
+
+  data =  [
+  [
+  destination_markers[0]._latlng.lat,
+  destination_markers[0]._latlng.lng
+  ],
+  [
+  destination_markers[1]._latlng.lat,
+  destination_markers[1]._latlng.lng
+  ]
+  ];
+  console.log(data);
+
+  invoke('route', { coordinates: data 
+  }).then((message) => {
+    console.log(message);
+    shortest_path_polyline = L.polyline(message, {color: 'red'}).addTo(map);
+
+  });
+}
+
+async function reset() {
+  for (let marker of destination_markers) {
+    map.removeLayer(marker);
+  }
+  destination_markers = [];
+  map.removeLayer(shortest_path_polyline);
+  shortest_path_polyline = [];
+  
+  console.log("Reset");
+}
+  </script>
+</body>
+
+</html>

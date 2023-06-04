@@ -6,13 +6,16 @@ mod generate_map;
 mod dijkstra;
 mod datastructs;
 mod binary_minheap_alex;
+mod graph;
 
 use crate::datastructs::{Coordinates};
 use crate::dijkstra::run_dijkstra;
+use crate::graph::import_graph_from_file;
 use crate::import_pbf::{import_pbf, print_geojson};
 use crate::generate_map::{generate_map, read_geojsons};
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[actix_web::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     const COMMANDS: &str = "import/generate/run";
 
     let command = std::env::args_os()
@@ -66,6 +69,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             println!(" Finished in {} sek", now.elapsed()?.as_secs());
         }
+
         Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),
         None => println!("need to specify the command, {}", COMMANDS),
     }
