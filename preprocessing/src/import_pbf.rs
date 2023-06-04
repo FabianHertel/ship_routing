@@ -63,8 +63,8 @@ pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str, reduce: b
     iterator_objects.par_iter().for_each(|file| {
         let filename = prefix.to_owned() + "_" + file.0;
         let now = SystemTime::now();
-        let geometry = Geometry::new(Value::MultiLineString(file.1.to_owned()));
-        fs::write(format!("./geojson/{}.json", filename), geometry.to_string()).expect("Unable to write file");
+        let json = "{\"coordinates\":".to_owned() + &format!("{:?}", file.1) + ",\"type\":\"MultiLineString\"}";
+        fs::write(format!("./geojson/{}.json", filename), json).expect("Unable to write file");
         println!("Finished {} in {} sek", filename, now.elapsed().unwrap().as_secs());
     });
     println!("Exit parallel");
