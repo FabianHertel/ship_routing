@@ -407,9 +407,7 @@ fn random_points_on_sphere(polygons: &Vec<Island>) -> () {
                         });
                     }
                     distance_ne = 40000.0;
-                    distance_nw = 40000.0;
                     distance_se = 40000.0;
-                    distance_sw = 40000.0;
                 }    
                 
             }   
