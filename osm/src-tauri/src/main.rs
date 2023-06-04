@@ -2,7 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod dijkstra;
 mod datastructs;
-mod binary_minheap_alex;
+mod binary_minheap;
 mod graph;
 
 use crate::datastructs::Coordinates;

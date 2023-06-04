@@ -132,7 +132,7 @@ impl BinaryMinHeap {
 
 #[cfg(test)]
 mod test {
-    use crate::binary_minheap_alex::BinaryMinHeap;
+    use crate::binary_minheap::BinaryMinHeap;
 
     #[test]
     fn test_push_pop() {

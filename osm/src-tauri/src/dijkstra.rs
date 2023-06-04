@@ -1,5 +1,5 @@
 use std::error::Error;
-use crate::{datastructs::Coordinates, binary_minheap_alex::BinaryMinHeap};
+use crate::{datastructs::Coordinates, binary_minheap::BinaryMinHeap};
 use crate::graph::{ShortestPath, Graph, Node, Edge};
 
 /// Run a Dijkstra from the source coodinates to the target coordinates
