@@ -1,10 +1,8 @@
 use std::fs::File;
-use std::error::Error;
-
 use std::io::{BufRead, BufReader};
-use crate::datastructs::distance_between;
-use crate::datastructs::Coordinates;
 
+use crate::coordinates::Coordinates;
+use crate::coordinates::distance_between;
 use serde::{Serialize, Deserialize};
 
 pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
@@ -17,7 +15,7 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
     let mut num_edges = 0;
 
     let graph_file = File::open(path)?;
-    let mut reader = BufReader::new(graph_file);
+    let reader = BufReader::new(graph_file);
 
     let mut num_line = 0;
 
@@ -25,7 +23,7 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
         let line = line?;
         line.split(" ");
 
-        let mut numbers: Vec<f64> = line
+        let numbers: Vec<f64> = line
         .split_whitespace()
         .map(|s| s.parse::<f64>())
         .collect::<Result<Vec<f64>, _>>()
@@ -43,8 +41,8 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
         else if (num_line > 1 && num_line < num_nodes + 2 ) {
             nodes.push(Node{
                 id: numbers[0] as usize,
-                lon: numbers[1],
-                lat: numbers[2],
+                lat: numbers[1],
+                lon: numbers[2],
             })
         } 
         else if (num_line >= num_nodes + 2)  {
@@ -57,25 +55,31 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
         num_line += 1;
     }
     
+    let mut next_src: usize = 0;
     let mut offset: usize = 0;
-    for i in 0..nodes.len(){
-        offsets.push(offset);
-        offset += edges.iter().filter(|e| e.src == i).count();       
+    let mut offsets = vec![0; num_nodes + 1];
+    for edge in edges.iter() {
+        if edge.src >= next_src {
+            for j in next_src..=edge.src {
+                offsets[j] = offset;
+            }
+            next_src = edge.src + 1;
+        }
+        offset += 1;
+    }
+    for i in next_src..= num_nodes {
+        offsets[i] = num_edges;
     }
     
-    // println!("{}", num_nodes);
-    // println!("{}", num_edges);
-    // println!("{:?}", nodes);
-    // println!("{:?}", edges);
-    // print!("{:?}", offsets);
-    
+    println!("Finished importing");
+
     Ok(Graph {
         nodes : nodes,
         edges : edges,
         offsets: offsets,
     })
+    
 }
-
 /// An undirected graph
 pub struct Graph {
     pub nodes: Vec<Node>,

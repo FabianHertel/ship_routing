@@ -1,39 +1,57 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod dijkstra;
-mod datastructs;
+mod coordinates;
 mod binary_minheap;
 mod graph;
 
-use crate::datastructs::Coordinates;
+use crate::graph::import_graph_from_file;
+use crate::dijkstra::run_dijkstra;
 use crate::graph::Graph;
+use crate::coordinates::Coordinates;
 
+static mut graph: Graph = Graph{
+    nodes: Vec::new(),
+    edges: Vec::new(),
+    offsets: Vec::new(),
+};
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
 fn route(coordinates: [[f64;2];2]) -> Vec<[f64;2]> {
 
-    println!("{:?}",coordinates);
+    let src = Coordinates(coordinates[0][1], coordinates[0][0]);
+    let tgt = Coordinates(coordinates[1][1], coordinates[1][0]);
+    let mut shortest_path = Vec::new();
 
-    let src = Coordinates(coordinates[0][0], coordinates[0][1]);
-    let tgt = Coordinates(coordinates[1][0], coordinates[1][1]);
+    unsafe{
+        let path = run_dijkstra(src, tgt, &graph).expect("Error Dijkstra");
+        
+        match path {
+            Some(current_path) => {
+                    for i in 0..current_path.path().len() {
+                        shortest_path.push([current_path.path()[i].lat, current_path.path()[i].lon]);
+                    }
+            }
+            None => println!("No Solution found")
+        }
+    }
 
-    // let graph_file_path = "./data/graph";
-    // let graph_import: Graph = import_graph_from_file(graph_file_path).expect("Error importing Graph");
-
-    //let mut path = run_dijkstra(src, tgt, &graph_import);
-    let mut path = Vec::new();
-    path.push(coordinates[0]);
-    path.push(coordinates[1]);
-
-    path.into()
+    shortest_path.into()
 }
 
 fn main() {
-    
     tauri::Builder::default()
+    .setup(|app| {
+        println!("Import Graph");
+        unsafe{
+            graph = import_graph_from_file("./graph.fmi").expect("Error importing Graph");
+        }
+        println!("Finished importing");
+        Ok(())
+    })
     .invoke_handler(tauri::generate_handler![route])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
+
 
 }
