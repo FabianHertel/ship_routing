@@ -1,15 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-mod import_pbf;
-mod generate_map;
 mod dijkstra;
 mod datastructs;
 mod binary_minheap_alex;
 mod graph;
 
-use crate::graph::import_graph_from_file;
-use crate::dijkstra::run_dijkstra;
-use crate::datastructs::{Coordinates, Graph};
+use crate::datastructs::Coordinates;
+use crate::graph::Graph;
 
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command

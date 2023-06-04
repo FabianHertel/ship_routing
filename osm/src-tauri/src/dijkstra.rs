@@ -1,5 +1,6 @@
 use std::error::Error;
-use crate::{datastructs::{Coordinates, ShortestPath, Graph, Node, Edge}, binary_minheap_alex::BinaryMinHeap};
+use crate::{datastructs::Coordinates, binary_minheap_alex::BinaryMinHeap};
+use crate::graph::{ShortestPath, Graph, Node, Edge};
 
 /// Run a Dijkstra from the source coodinates to the target coordinates
 pub fn run_dijkstra(src_coordinates: Coordinates, tgt_coordinates: Coordinates, graph: &Graph) -> Result<Option<ShortestPath>, Box<dyn Error>> {

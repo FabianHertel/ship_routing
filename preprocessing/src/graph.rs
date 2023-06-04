@@ -1,8 +1,10 @@
 use std::fs::File;
-use std::error::Error;
 
 use std::io::{BufRead, BufReader};
-use crate::datastructs::{Graph, Node, Edge};
+use crate::coordinates::distance_between;
+use crate::coordinates::Coordinates;
+
+use serde::{Serialize, Deserialize};
 
 pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
 
@@ -71,5 +73,89 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
         edges : edges,
         offsets: offsets,
     })
+}
+
+/// An undirected graph
+pub struct Graph {
+    pub nodes: Vec<Node>,
+    pub edges: Vec<Edge>,
+    pub offsets: Vec<usize>,
+}
+
+impl Graph {
+    pub fn closest_node(&self, point: &Coordinates) -> &Node {
+        let mut closest_node = &self.nodes[0];
+        let mut closest_dist = f64::MAX;
+        for node in &self.nodes {
+            let distance = node.distance_to(point);
+            if distance < closest_dist {
+                closest_node = node;
+                closest_dist = distance;
+            }
+        }
+        return closest_node;
+    }
     
+    /// Get the node with id `node_id`
+    pub fn get_node(&self, node_id: usize) -> &Node {
+        &self.nodes[node_id]
+    }
+
+    pub fn n_nodes(&self) -> usize {
+        return self.nodes.len();
+    }
+
+    #[allow(dead_code)]
+    pub fn n_edges(&self) -> usize {
+        return self.edges.len();
+    }
+
+    /// Get all outgoing edges of a particular node
+    pub fn get_outgoing_edges(&self, node_id: usize) -> &[Edge] {
+        &self.edges[self.offsets[node_id]..self.offsets[node_id + 1]]
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+pub struct Node {
+    pub id: usize,
+    pub lon: f64,
+    pub lat: f64
+}
+
+impl Node {
+    pub fn distance_to(&self, y: &Coordinates) -> f64 {
+        return distance_between(self.lon, self.lat, y.0, y.1);
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+pub struct Edge {
+    /// The id of the edge's source node
+    pub src: usize,
+    /// The id of the edge's target node
+    pub tgt: usize,
+    /// The edge's weight, i.e., the distance between its source and target
+    pub dist: f64,
+}
+
+
+/// Result of a shortest path algorithm
+pub struct ShortestPath(f64, Vec<Node>);
+
+impl ShortestPath {
+    /// Creates a new node result with distance `dist` and path `path` to the associated node
+    pub fn new(dist: f64, path: Vec<Node>) -> Self {
+        Self(dist, path)
+    }
+
+    /// Returns the distance to the associated node
+    pub fn dist(&self) -> f64 {
+        self.0
+    }
+
+    /// Returns the path from the source node to the associated node
+    pub fn path(&self) -> &Vec<Node> {
+        &self.1
+    }
 }

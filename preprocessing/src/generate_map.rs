@@ -3,7 +3,8 @@ use geojson::{GeoJson, Geometry, Value};
 use rayon::{prelude::*, vec};
 use rand::Rng;
 
-use crate::datastructs::{Coordinates, Graph, Node, Edge};
+use crate::coordinates::{Coordinates};
+use crate::graph::{Node, Edge};
 use crate::graph::import_graph_from_file;
 
 pub fn generate_map() -> Result<(), Box<dyn Error>> {
