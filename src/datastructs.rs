@@ -1,5 +1,5 @@
 
-use std::f64::consts::PI;
+use std::{f64::consts::PI, fmt::{Display, Formatter}};
 
 use serde::{Serialize, Deserialize};
 
@@ -20,6 +20,12 @@ impl Coordinates {
     }
 }
 
+impl Display for Coordinates {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}, {}]", self.0, self.1)
+    }
+}
+
 pub fn distance_between(lon1:f64, lat1:f64, lon2:f64, lat2:f64) -> f64 {
     // from: http://www.movable-type.co.uk/scripts/latlong.html
     let φ1 = lat1 * PI/180.0; // φ, λ in radians
@@ -31,12 +37,6 @@ pub fn distance_between(lon1:f64, lat1:f64, lon2:f64, lat2:f64) -> f64 {
     let haversine = (dφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (dλ/2.0).sin().powi(2);
     let distance = EARTH_RADIUS * 2.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
     return distance;
-}
-
-impl std::fmt::Display for Coordinates {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}, {}]", self.0, self.1)
-    }
 }
 
 /// Result of a shortest path algorithm
