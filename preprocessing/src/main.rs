@@ -61,10 +61,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .ok_or("specify end coodinates lon,lat")?;
             let source_coordinats = Coordinates::from_str(source_coordinates_str.to_str().unwrap());
             let target_coordinats = Coordinates::from_str(target_coordinates_str.to_str().unwrap());
+            println!("Process dijkstra ...");
+            let now = SystemTime::now();
             match run_dijkstra(source_coordinats, target_coordinats)? {
                 Some(path) => println!("Pfad: {:?}, Länge: {}", path.path(), path.dist()),
                 None => println!("No path found")
             }
+            println!(" Finished in {} sek", now.elapsed()?.as_secs());
         }
 
         Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),
