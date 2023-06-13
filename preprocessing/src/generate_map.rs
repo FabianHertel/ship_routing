@@ -223,7 +223,7 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
         .map(|filename| {
             let now = SystemTime::now();
             let filename = prefix.to_owned() + "_" + filename;
-            let geojson_str = fs::read_to_string(format!("./geojson/{filename}.json"))
+            let geojson_str = fs::read_to_string(format!("./data/geojson/{filename}.json"))
                 .expect(&format!("Unable to read JSON file {}", filename));
             let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap(); // needs much of time (4-5min for world)
             println!(
@@ -514,7 +514,7 @@ fn random_points_on_sphere(polygons: &Vec<Island>) -> () {
             + "\n";
     }
 
-    let mut f = File::create("graph.fmi").expect("Unable to create file");
+    let mut f = File::create("data/graph.fmi").expect("Unable to create file");
     f.write_all(data.as_bytes()).expect("unable to write file");
 
 }
