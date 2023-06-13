@@ -19,7 +19,7 @@ pub fn run_dijkstra(src_coordinates: Coordinates, tgt_coordinates: Coordinates, 
         }
     }
 
-    println!("Graph: {:?}", result);
+    // println!("Graph: {:?}", result);
 
     Ok(result.result_of(graph, tgt_node.id))
 }
