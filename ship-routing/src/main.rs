@@ -44,7 +44,7 @@ fn main() {
     .setup(|app| {
         println!("Import Graph");
         unsafe{
-            graph = import_graph_from_file("./graph.fmi").expect("Error importing Graph");
+            graph = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph");
         }
         println!("Finished importing");
         Ok(())

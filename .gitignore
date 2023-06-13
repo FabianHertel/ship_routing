@@ -1,3 +1,8 @@
+/target
+/data/geojson/*.json
+/data/*osm.pbf
+/data/*.fmi
+
 # Logs
 logs
 *.log
@@ -7,12 +12,11 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Yarn
 node_modules
 dist
 dist-ssr
 *.local
-
-*.fmi
 
 # Editor directories and files
 .vscode/*
