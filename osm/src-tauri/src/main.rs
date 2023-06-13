@@ -5,10 +5,10 @@ mod coordinates;
 mod binary_minheap;
 mod graph;
 
-use crate::coordinates::Coordinates;
 use crate::graph::import_graph_from_file;
 use crate::dijkstra::run_dijkstra;
 use crate::graph::Graph;
+use crate::coordinates::Coordinates;
 
 static mut graph: Graph = Graph{
     nodes: Vec::new(),

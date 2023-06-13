@@ -1,8 +1,8 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use crate::coordinates::distance_between;
-use crate::coordinates::Coordinates;
 
+use crate::coordinates::Coordinates;
+use crate::coordinates::distance_between;
 use serde::{Serialize, Deserialize};
 
 pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
