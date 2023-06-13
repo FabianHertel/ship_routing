@@ -1,5 +1,5 @@
 [package]
-name = "osm"
+name = "preprocessing"
 version = "0.2.1"   # finished task 2
 authors = ["Alexander Harner", "Fabian Hertel"]
 description = "An application for ship routing on the ocean based on OpenStreet Map Data."
