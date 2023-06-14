@@ -3,9 +3,12 @@ use std::time::{SystemTime};
 
 mod import_pbf;
 mod generate_map;
+mod island;
+mod test_polygon_test;
 
 use crate::import_pbf::{import_pbf, print_geojson};
 use crate::generate_map::{generate_map, read_geojsons};
+use crate::test_polygon_test::static_polygon_tests;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -49,21 +52,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .ok_or("specify a file name for output graph")?;
             generate_map(filename_out.to_str().unwrap())?;
         }
-        // Some("dijkstra") => {
-        //     let source_coordinates_str = std::env::args_os().nth(2)
-        //         .ok_or("specify start coodinates lon,lat")?;
-        //     let target_coordinates_str = std::env::args_os().nth(3)
-        //         .ok_or("specify end coodinates lon,lat")?;
-        //     let source_coordinats = Coordinates::from_str(source_coordinates_str.to_str().unwrap());
-        //     let target_coordinats = Coordinates::from_str(target_coordinates_str.to_str().unwrap());
-        //     println!("Process dijkstra ...");
-        //     let now = SystemTime::now();
-        //     match run_dijkstra(source_coordinats, target_coordinats)? {
-        //         Some(path) => println!("Pfad: {:?}, Länge: {}", path.path(), path.dist()),
-        //         None => println!("No path found")
-        //     }
-        //     println!(" Finished in {} sek", now.elapsed()?.as_secs());
-        // }
+        Some("test") => {
+            static_polygon_tests();
+        }
 
         Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),
         None => println!("need to specify the command, {}", COMMANDS),

@@ -1,3 +1,4 @@
+use core::num;
 use std::{time::SystemTime, fs::{self, File}, error::Error, io::{Write}};
 use geojson::{GeoJson, Geometry, Value};
 use rayon::{prelude::*};
@@ -5,229 +6,40 @@ use rand::Rng;
 
 use graph_lib::{Coordinates, Node, Edge};
 
+use crate::island::{Island, min_distance};
+
 pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let mut coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
-    coastlines.sort_by(|a, b| b.len().cmp(&a.len()));
-    println!("1/?: Finished in {} sek", now.elapsed()?.as_secs());
+    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
+    println!("1/?: Finished in {} sek", now.elapsed().unwrap().as_secs());
 
     println!("2/?: Precalculations for islands/continents ...");
     let now = SystemTime::now();
-    let islands: Vec<Island> = coastlines
-        .iter()
-        .map(|e| Island::new(e.to_owned()))
-        .collect();
-    println!(
-        "2/?: Finished precalculations in {} sek",
-        now.elapsed()?.as_secs()
-    );
+    let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
+    println!("2/?: Finished precalculations in {} sek", now.elapsed().unwrap().as_secs());
 
-    random_points_on_sphere(&islands, filename_out);
-
-    let now = SystemTime::now();
-    println!(
-        "Point on land (Atlantic): {}",
-        point_in_polygon_test(0.0, 0.0, &islands)
-    ); // Atlantic
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!(
-        "Point on land (US): {}",
-        point_in_polygon_test(-104.2758092369033, 34.117786526143604, &islands)
-    ); //US
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!(
-        "Point on land (Arktis): {}",
-        point_in_polygon_test(-27.24044854389621, 70.01752410356319, &islands)
-    ); // North of Grönland
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!(
-        "Point on land (Antarctica): {}",
-        point_in_polygon_test(71.55, -74.1878186, &islands)
-    ); //Antarctica
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!(
-        "Point on land (Mid of pacific): {}",
-        point_in_polygon_test(-144.1294183409396, -47.75776979131451, &islands)
-    );
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
-    let now = SystemTime::now();
-    println!(
-        "Point on land (Russia): {}",
-        point_in_polygon_test(82.35471714457248, 52.4548566256728, &islands)
-    );
-    println!("Finished test in {} millis", now.elapsed()?.as_millis());
+    random_points_on_sphere(&islands, 1000000, filename_out);
 
     Ok(())
 }
 
 /**
- * bounding box: [[min_lon, max_lon], [min_lat, max_lat]]
+ * read continents and islands from geojsons and sort it from big to small
  */
-pub struct Island {
-    coastline: Vec<Coordinates>,
-    bounding_box: [[f64; 2]; 2],
-    reference_points: Vec<Coordinates>,
-    max_dist_from_ref: f64,
-    lon_distribution: Vec<Vec<usize>>,
-    lon_distribution_distance: f64,
-}
-
-impl std::fmt::Display for Island {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Islandcenter: ({})", self.reference_points[0])
-    }
-}
-
-impl Island {
-    fn new(coastline: Vec<Vec<f64>>) -> Island {
-        let mut cog = Coordinates(0.0, 0.0);
-        let mut bounding_box = [[180.0, -180.0], [90.0, -90.0]];
-        let mut coastline_formatted: Vec<Coordinates> = vec![];
-        let mut max_lon_jump = 0.0;
-        for i in 0..coastline.len() {
-            if coastline[i][0] < bounding_box[0][0] {
-                bounding_box[0][0] = coastline[i][0];
-            }
-            if coastline[i][0] > bounding_box[0][1] {
-                bounding_box[0][1] = coastline[i][0];
-            }
-            if coastline[i][1] < bounding_box[1][0] {
-                bounding_box[1][0] = coastline[i][1];
-            }
-            if coastline[i][1] > bounding_box[1][1] {
-                bounding_box[1][1] = coastline[i][1];
-            }
-            (cog.0, cog.1) = (cog.0 + coastline[i][0], cog.1 + coastline[i][1]);
-            if i < coastline.len() - 1
-                && (coastline[i + 1][0] - coastline[i][0]).abs() > max_lon_jump
-            {
-                max_lon_jump = (coastline[i + 1][0] - coastline[i][0]).abs();
-            }
-            coastline_formatted.push(Coordinates::from_vec(&coastline[i]));
-        }
-        const MIN_LON_DISTR_DIFF: f64 = 0.2;
-        let lon_distribution_distance = max(max_lon_jump, MIN_LON_DISTR_DIFF);
-        let n = coastline_formatted.len().to_owned() as f64;
-        (cog.0, cog.1) = (cog.0 / n, cog.1 / n);
-
-        let mut lon_distribution: Vec<Vec<usize>> = vec![];
-        const MIN_SIZE_FOR_LON_DISTR: usize = 1000;
-        if coastline.len() > MIN_SIZE_FOR_LON_DISTR
-            && (bounding_box[0][1] - bounding_box[0][0]) > 10.0 * lon_distribution_distance
-        {
-            let n_seperations = ((bounding_box[0][1] - bounding_box[0][0])
-                / lon_distribution_distance)
-                .ceil() as usize;
-            // println!("Max jump: {}; distr size: {}", max_lon_jump, n_seperations);
-            lon_distribution = vec![vec![]; n_seperations];
-        }
-
-        let mut reference_points = vec![cog.clone()];
-        let mut most_far_away_point = &Coordinates(0.0, 0.0);
-        let mut max_dist_from_ref = 0.0;
-        let mut distance_sum = 0.0;
-        for i in 0..coastline_formatted.len() {
-            let distance = coastline_formatted[i].distance_to(&cog);
-            distance_sum += distance;
-            if distance > max_dist_from_ref {
-                most_far_away_point = &coastline_formatted[i];
-                max_dist_from_ref = distance;
-            }
-            if coastline.len() > MIN_SIZE_FOR_LON_DISTR
-                && (bounding_box[0][1] - bounding_box[0][0]) > 10.0 * lon_distribution_distance
-            {
-                let index_in_lon_distr = ((coastline_formatted[i].0 - bounding_box[0][0])
-                    / lon_distribution_distance)
-                    .floor() as usize;
-                lon_distribution[index_in_lon_distr].push(i);
-            }
-        }
-
-        // calculate more reference points (additional to cog) to get shorter max distances
-        let mut refpoint_most_far_away = cog;
-        while max_dist_from_ref > 1000.0
-            && (distance_sum / coastline_formatted.len() as f64) < 0.5 * max_dist_from_ref
-        {
-            let new_refpoint = Coordinates(
-                (refpoint_most_far_away.0 + most_far_away_point.0) / 2.0,
-                (refpoint_most_far_away.1 + most_far_away_point.1) / 2.0,
-            );
-            print!(
-                "Dist: {}, with average: {} -> Generated {}, {}",
-                max_dist_from_ref,
-                (distance_sum / coastline_formatted.len() as f64),
-                new_refpoint.0,
-                new_refpoint.1
-            );
-            reference_points.push(new_refpoint);
-            distance_sum = 0.0;
-            max_dist_from_ref = 0.0;
-            for point in &coastline_formatted {
-                let (distance, refpoint) = min_distance(point, &reference_points);
-                distance_sum += distance;
-                if distance > max_dist_from_ref {
-                    most_far_away_point = point;
-                    max_dist_from_ref = distance;
-                    refpoint_most_far_away = refpoint;
-                }
-            }
-            println!(
-                "; new dist: {}, new average: {}",
-                max_dist_from_ref,
-                (distance_sum / coastline_formatted.len() as f64)
-            );
-        }
-
-        Island {
-            coastline: coastline_formatted,
-            bounding_box,
-            reference_points,
-            max_dist_from_ref,
-            lon_distribution,
-            lon_distribution_distance,
-        }
-    }
-}
-
-fn max(v1: f64, v2: f64) -> f64 {
-    if v1 > v2 {
-        return v1;
-    } else {
-        return v2;
-    }
-}
-
-fn min_distance(x: &Coordinates, reference_points: &Vec<Coordinates>) -> (f64, Coordinates) {
-    let mut min_distance = 40000.0;
-    let mut closest_refpoint = &reference_points[0];
-    reference_points.iter().for_each(|reference_point| {
-        let distance = x.distance_to(reference_point);
-        if distance < min_distance {
-            min_distance = distance;
-            closest_refpoint = reference_point;
-        }
-    });
-    return (min_distance, closest_refpoint.clone());
-}
-
 pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
-    return ["continents", "big_islands", "islands", "small_islands"]
+    let mut coastlines =  ["continents", "big_islands", "islands", "small_islands"]
         .par_iter()
         .map(|filename| {
             let now = SystemTime::now();
-            let filename = prefix.to_owned() + "_" + filename;
-            let geojson_str = fs::read_to_string(format!("./data/geojson/{filename}.json"))
-                .expect(&format!("Unable to read JSON file {}", filename));
+            let filepath = format!("./data/geojson/{}.json", prefix.to_owned() + "_" + filename);
+            let geojson_str = fs::read_to_string(&filepath)
+                .expect(&format!("Unable to read JSON file {}", &filepath));
             let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap(); // needs much of time (4-5min for world)
             println!(
                 "Parsing {} finished after {} sek",
-                filename,
+                filepath,
                 now.elapsed().unwrap().as_secs()
             );
             let geometry: Geometry = Geometry::try_from(geojson).unwrap();
@@ -243,6 +55,9 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
                 return a;
             },
         );
+
+        coastlines.sort_by(|a, b| b.len().cmp(&a.len()));
+        return coastlines;
 }
 
 /**
@@ -256,26 +71,26 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
  * If it is even, we are in the sea. If odd, we are on land.
  * Note: Antartica avoids -180 to 180 edge, so coastline goes to the southpole and around it.
  */
-fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
+pub fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
     for island in polygons {
-        let in_bounding_box = lon > island.bounding_box[0][0]
-            && lon < island.bounding_box[0][1]
-            && lat > island.bounding_box[1][0]
-            && lat < island.bounding_box[1][1];
+        let in_bounding_box = lon > island.get_bounding_box()[0][0]
+            && lon < island.get_bounding_box()[0][1]
+            && lat > island.get_bounding_box()[1][0]
+            && lat < island.get_bounding_box()[1][1];
         if in_bounding_box {
             let in_range_of_ref_points =
-                min_distance(&Coordinates(lon, lat), &island.reference_points).0
-                    < island.max_dist_from_ref;
+                min_distance(&Coordinates(lon, lat), &island.get_reference_points()).0
+                    < *island.get_max_dist_from_ref();
             if in_range_of_ref_points {
                 // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.max_dist_from_ref, distance_between(&island.reference_points[0], &Coordinates(lon, lat)), island.coastline.len());
                 let mut in_water = false;
-                let polygon = &island.coastline;
-                if island.lon_distribution.len() > 0 {
-                    let index_in_lon_distr = ((lon - island.bounding_box[0][0])
-                        / island.lon_distribution_distance)
+                let polygon = &island.get_coastline();
+                if island.get_lon_distribution().len() > 0 {
+                    let index_in_lon_distr = ((lon - island.get_bounding_box()[0][0])
+                        / island.get_lon_distribution_distance())
                         .floor() as usize;
                     let mut last_point_i: usize = 0;
-                    for point_i in &island.lon_distribution[index_in_lon_distr] {
+                    for point_i in &island.get_lon_distribution()[index_in_lon_distr] {
                         if *point_i != last_point_i + 1 && *point_i > 0 {
                             // check edge before only if not checked before
                             let (start, end) = (&polygon[point_i - 1], &polygon[*point_i]);
@@ -297,7 +112,7 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
                             }
                         }
                         // check edge after always point is not the last one
-                        if *point_i < island.coastline.len() - 1 {
+                        if *point_i < island.get_coastline().len() - 1 {
                             let (start, end) = (&polygon[*point_i], &polygon[point_i + 1]);
                             if (start.0 > lon) != (end.0 > lon) {
                                 // check if given lon of point is between start and end point of edge
@@ -351,7 +166,7 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
     return false;
 }
 
-fn random_points_on_sphere(polygons: &Vec<Island>, filename_out: &str) -> () {
+pub fn random_points_on_sphere(polygons: &Vec<Island>, number_of_points: u32, filename_out: &str) -> () {
     let mut rng = rand::thread_rng();
     let mut new_node: Node;
     let mut points: Vec<Node> = Vec::new();
@@ -367,7 +182,7 @@ fn random_points_on_sphere(polygons: &Vec<Island>, filename_out: &str) -> () {
     let mut data = String::new();
     let max_distance = 30.0;
 
-    while counter < 1000000 {
+    while counter < number_of_points {
         x = 0.0;
         y = 0.0;
         z = 0.0;

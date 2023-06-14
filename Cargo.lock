@@ -1780,6 +1780,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
 
 [[package]]
+name = "lombok"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5187642d1287622bffecdec7f70f0a961dce14d03b9173374e1f5f615b798dea"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "loom"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2306,6 +2317,7 @@ dependencies = [
  "geojson",
  "graph_lib",
  "log",
+ "lombok",
  "osmpbf",
  "rand 0.8.5",
  "rayon",
