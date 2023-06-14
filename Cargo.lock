@@ -1315,6 +1315,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "graph_lib"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "gtk"
 version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2297,11 +2304,11 @@ version = "0.2.1"
 dependencies = [
  "actix-web",
  "geojson",
+ "graph_lib",
  "log",
  "osmpbf",
  "rand 0.8.5",
  "rayon",
- "serde",
 ]
 
 [[package]]
@@ -2819,6 +2826,7 @@ name = "ship-routing"
 version = "0.0.0"
 dependencies = [
  "geojson",
+ "graph_lib",
  "log",
  "osmpbf",
  "rand 0.8.5",

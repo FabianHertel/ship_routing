@@ -1,16 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod dijkstra;
-mod coordinates;
 mod binary_minheap;
-mod graph;
 
-use crate::graph::import_graph_from_file;
+use graph_lib::{import_graph_from_file, Coordinates};
 use crate::dijkstra::run_dijkstra;
-use crate::graph::Graph;
-use crate::coordinates::Coordinates;
 
-static mut graph: Graph = Graph{
+static mut graph: graph_lib::Graph = graph_lib::Graph{
     nodes: Vec::new(),
     edges: Vec::new(),
     offsets: Vec::new(),

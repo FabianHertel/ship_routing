@@ -1,6 +1,5 @@
 use osmpbf::{Element, ElementReader};
 use std::{ffi::OsString, collections::{HashSet, HashMap, LinkedList}, time::SystemTime, error::Error};
-use geojson::{Geometry, Value};
 use std::fs;
 use rayon::prelude::*;
 

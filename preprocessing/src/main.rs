@@ -3,8 +3,6 @@ use std::time::{SystemTime};
 
 mod import_pbf;
 mod generate_map;
-mod coordinates;
-mod graph;
 
 use crate::import_pbf::{import_pbf, print_geojson};
 use crate::generate_map::{generate_map, read_geojsons};

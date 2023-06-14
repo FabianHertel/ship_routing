@@ -9,10 +9,10 @@ edition = "2021"    # rust edition
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+graph_lib = { path = "../graph_lib" }
 osmpbf = "0.2"
 geojson ="*"
 rayon = "1.7.0"
 rand = "0.8.5"
 actix-web = "4"
 log = "0.4.18"
-serde = "1.0.163"

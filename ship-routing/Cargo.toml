@@ -13,12 +13,13 @@ edition = "2021"
 tauri-build = { version = "1.3", features = [] }
 
 [dependencies]
+graph_lib = { path = "../graph_lib" }
 tauri = { version = "1.3", features = ["shell-open"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 osmpbf = "0.2"
 geojson ="*"
-rayon = "1.7.0"
+rayon = "1.7.0"     # parallel computing
 rand = "0.8.5"
 log = "0.4.18"
 
