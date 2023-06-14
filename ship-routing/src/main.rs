@@ -3,10 +3,10 @@
 mod dijkstra;
 mod binary_minheap;
 
-use graph_lib::{import_graph_from_file, Coordinates};
+use graph_lib::{import_graph_from_file, Coordinates, Graph};
 use crate::dijkstra::run_dijkstra;
 
-static mut graph: graph_lib::Graph = graph_lib::Graph{
+static mut GRAPH: Graph = Graph {
     nodes: Vec::new(),
     edges: Vec::new(),
     offsets: Vec::new(),
@@ -20,7 +20,7 @@ fn route(coordinates: [[f64;2];2]) -> Vec<[f64;2]> {
     let mut shortest_path = Vec::new();
 
     unsafe{
-        let path = run_dijkstra(src, tgt, &graph).expect("Error Dijkstra");
+        let path = run_dijkstra(src, tgt, &GRAPH).expect("Error Dijkstra");
         
         match path {
             Some(current_path) => {
@@ -37,10 +37,10 @@ fn route(coordinates: [[f64;2];2]) -> Vec<[f64;2]> {
 
 fn main() {
     tauri::Builder::default()
-    .setup(|app| {
+    .setup(|_app| {
         println!("Import Graph");
         unsafe{
-            graph = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph");
+            GRAPH = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph");
         }
         println!("Finished importing");
         Ok(())
@@ -48,6 +48,4 @@ fn main() {
     .invoke_handler(tauri::generate_handler![route])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
-
-
 }
