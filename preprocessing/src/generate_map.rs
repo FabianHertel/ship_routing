@@ -5,7 +5,7 @@ use rand::Rng;
 
 use graph_lib::{Coordinates, Node, Edge};
 
-pub fn generate_map() -> Result<(), Box<dyn Error>> {
+pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
@@ -24,7 +24,7 @@ pub fn generate_map() -> Result<(), Box<dyn Error>> {
         now.elapsed()?.as_secs()
     );
 
-    random_points_on_sphere(&islands);
+    random_points_on_sphere(&islands, filename_out);
 
     let now = SystemTime::now();
     println!(
@@ -351,7 +351,7 @@ fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
     return false;
 }
 
-fn random_points_on_sphere(polygons: &Vec<Island>) -> () {
+fn random_points_on_sphere(polygons: &Vec<Island>, filename_out: &str) -> () {
     let mut rng = rand::thread_rng();
     let mut new_node: Node;
     let mut points: Vec<Node> = Vec::new();
@@ -513,7 +513,7 @@ fn random_points_on_sphere(polygons: &Vec<Island>) -> () {
             + "\n";
     }
 
-    let mut f = File::create("data/graph.fmi").expect("Unable to create file");
+    let mut f = File::create("data/".to_owned() + filename_out).expect("Unable to create file");
     f.write_all(data.as_bytes()).expect("unable to write file");
 
 }

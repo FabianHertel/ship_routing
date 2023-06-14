@@ -45,7 +45,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("2/2: Finished in {} sek", now.elapsed()?.as_secs());
         }
         Some("generate") => {
-            generate_map()?;
+            let filename_out = std::env::args_os().nth(2)
+                .ok_or("specify a file name for output graph")?;
+            generate_map(filename_out.to_str().unwrap())?;
         }
         // Some("dijkstra") => {
         //     let source_coordinates_str = std::env::args_os().nth(2)
