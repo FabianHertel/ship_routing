@@ -1,4 +1,3 @@
-use core::num;
 use std::{time::SystemTime, fs::{self, File}, error::Error, io::{Write}};
 use geojson::{GeoJson, Geometry, Value};
 use rayon::{prelude::*};
@@ -176,6 +175,7 @@ pub fn random_points_on_sphere(polygons: &Vec<Island>, number_of_points: u32, fi
     let mut z: f64;
     let mut lat: f64;
     let mut lon: f64;
+    let mut norm: f64;
     let mut id = 0;
     let mut counter = 0;
     let mut grid: Vec<Vec<Vec<Node>>> = vec![vec![Vec::new(); 180]; 360];
@@ -192,7 +192,7 @@ pub fn random_points_on_sphere(polygons: &Vec<Island>, number_of_points: u32, fi
             y = rng.gen_range(-1.0..1.0);
             z = rng.gen_range(-1.0..1.0);
         }
-        let norm = (x * x + y * y + z * z).sqrt();
+        norm = (x * x + y * y + z * z).sqrt();
 
         x = x / norm;
         y = y / norm;

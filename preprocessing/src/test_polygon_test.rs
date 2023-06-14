@@ -45,6 +45,7 @@ pub fn static_polygon_tests() {
     let mut z: f64;
     let mut lat: f64;
     let mut lon: f64;
+    let mut norm: f64;
     let mut counter = 0;
 
     while counter < 1000 {
@@ -57,7 +58,7 @@ pub fn static_polygon_tests() {
             y = rng.gen_range(-1.0..1.0);
             z = rng.gen_range(-1.0..1.0);
         }
-        let norm = (x * x + y * y + z * z).sqrt();
+        norm = (x * x + y * y + z * z).sqrt();
 
         x = x / norm;
         y = y / norm;
