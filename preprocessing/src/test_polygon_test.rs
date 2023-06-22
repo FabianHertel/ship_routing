@@ -1,8 +1,8 @@
-use std::time::SystemTime;
+use std::{time::SystemTime};
 
 use rand::{Rng, rngs::StdRng, SeedableRng};
 
-use crate::{generate_map::{read_geojsons, point_in_polygon_test}, island::Island};
+use crate::{generate_map::{read_geojsons, point_in_polygon_test}, island::{Island, GRID_DIVISIONS}};
 
 pub fn static_polygon_tests() {
 
@@ -11,28 +11,31 @@ pub fn static_polygon_tests() {
     let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("complete");
     println!("1/?: Finished in {} sek", now.elapsed().unwrap().as_secs());
 
+
     println!("2/?: Precalculations for islands/continents ...");
     let now = SystemTime::now();
     let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
+    let mut island_grid: Vec<Vec<Vec<&Island>>> = GRID_DIVISIONS.iter().map(|e| vec![vec![]; *e]).collect();
+    islands.iter().for_each(|island| island.add_to_grid(&mut island_grid));
     println!("2/?: Finished precalculations in {} sek", now.elapsed().unwrap().as_secs());
     
     let now = SystemTime::now();
-    println!("Point on land (Atlantic): {}", point_in_polygon_test(0.0, 0.0, &islands)); // Atlantic
+    println!("Point on land (Atlantic): {}", point_in_polygon_test(0.0, 0.0, &island_grid)); // Atlantic
     println!("Finished test in {} millis", now.elapsed().unwrap().as_millis());
     let now = SystemTime::now();
-    println!("Point on land (US): {}", point_in_polygon_test(-104.2758092369033, 34.117786526143604, &islands)); //US
+    println!("Point on land (US): {}", point_in_polygon_test(-104.2758092369033, 34.117786526143604, &island_grid)); //US
     println!("Finished test in {} millis", now.elapsed().unwrap().as_millis());
     let now = SystemTime::now();
-    println!("Point on land (Arktis): {}", point_in_polygon_test(-27.24044854389621, 70.01752410356319, &islands)); // North of Grönland
+    println!("Point on land (Arktis): {}", point_in_polygon_test(-27.24044854389621, 70.01752410356319, &island_grid)); // North of Grönland
     println!("Finished test in {} millis", now.elapsed().unwrap().as_millis());
     let now = SystemTime::now();
-    println!("Point on land (Antarctica): {}", point_in_polygon_test(71.55, -74.1878186, &islands)); //Antarctica
+    println!("Point on land (Antarctica): {}", point_in_polygon_test(71.55, -74.1878186, &island_grid)); //Antarctica
     println!("Finished test in {} millis", now.elapsed().unwrap().as_millis());
     let now = SystemTime::now();
-    println!("Point on land (Mid of pacific): {}", point_in_polygon_test(-144.1294183409396, -47.75776979131451, &islands));
+    println!("Point on land (Mid of pacific): {}", point_in_polygon_test(-144.1294183409396, -47.75776979131451, &island_grid));
     println!("Finished test in {} millis", now.elapsed().unwrap().as_millis());
     let now = SystemTime::now();
-    println!("Point on land (Russia): {}", point_in_polygon_test(82.35471714457248, 52.4548566256728, &islands));
+    println!("Point on land (Russia): {}", point_in_polygon_test(82.35471714457248, 52.4548566256728, &island_grid));
     println!("Finished fixed points test in {} millis", now.elapsed().unwrap().as_millis());
 
     let now = SystemTime::now();
@@ -69,7 +72,7 @@ pub fn static_polygon_tests() {
 
         if norm <= 1.0 {
             counter += 1;
-            point_in_polygon_test(lon, lat, &islands);
+            point_in_polygon_test(lon, lat, &island_grid);
         }
     }
     println!("Finished 1000 points in {} millis", now.elapsed().unwrap().as_millis());

@@ -5,7 +5,7 @@ use rand::Rng;
 
 use graph_lib::{Coordinates, Node, Edge};
 
-use crate::island::{Island, min_distance};
+use crate::island::{Island, min_distance, GRID_DIVISIONS};
 
 pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
 
@@ -17,9 +17,11 @@ pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
     println!("2/?: Precalculations for islands/continents ...");
     let now = SystemTime::now();
     let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
+    let mut island_grid: Vec<Vec<Vec<&Island>>> = GRID_DIVISIONS.iter().map(|e| vec![vec![]; *e]).collect();
+    islands.iter().for_each(|island| island.add_to_grid(&mut island_grid));
     println!("2/?: Finished precalculations in {} sek", now.elapsed().unwrap().as_secs());
 
-    random_points_on_sphere(&islands, 1000000, filename_out);
+    random_points_on_sphere(&island_grid, 1000000, filename_out);
 
     Ok(())
 }
@@ -70,8 +72,18 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
  * If it is even, we are in the sea. If odd, we are on land.
  * Note: Antartica avoids -180 to 180 edge, so coastline goes to the southpole and around it.
  */
-pub fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool {
-    for island in polygons {
+pub fn point_in_polygon_test(lon: f64, lat: f64, island_grid: &Vec<Vec<Vec<&Island>>>) -> bool {
+    // in case lon or lat is exactly on the edge we can get an index out of bounds
+    let (mut lon, mut lat) = (lon, lat);
+    if lon == -180.0 {lon -= 0.0001};
+    if lat == -90.0 {lat -= 0.0001};
+
+    // northpole is row 0, southpole is last row
+    let grid_row = (-(lat - 90.0) * GRID_DIVISIONS.len() as f64 / 180.0) as usize;
+    let cell_in_row = (-(lon - 180.0) * GRID_DIVISIONS[grid_row] as f64 / 360.0) as usize;
+    // println!("(lon, lat): {},{} makes {},{}", lon, lat, grid_row, cell_in_row);
+    for island in &island_grid[grid_row][cell_in_row] {
+        // println!("Island in cell: {}", island);
         let in_bounding_box = lon > island.get_bounding_box()[0][0]
             && lon < island.get_bounding_box()[0][1]
             && lat > island.get_bounding_box()[1][0]
@@ -165,7 +177,7 @@ pub fn point_in_polygon_test(lon: f64, lat: f64, polygons: &Vec<Island>) -> bool
     return false;
 }
 
-pub fn random_points_on_sphere(polygons: &Vec<Island>, number_of_points: u32, filename_out: &str) -> () {
+pub fn random_points_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_points: u32, filename_out: &str) -> () {
     let mut rng = rand::thread_rng();
     let mut new_node: Node;
     let mut points: Vec<Node> = Vec::new();
@@ -202,7 +214,7 @@ pub fn random_points_on_sphere(polygons: &Vec<Island>, number_of_points: u32, fi
         lon = y.atan2(x).to_degrees(); // atan2(y,x)
 
         if norm <= 1.0 {
-            if !point_in_polygon_test(lon, lat, polygons) {
+            if !point_in_polygon_test(lon, lat, island_grid) {
                 new_node = Node {
                     id: 0,
                     lat: lat,

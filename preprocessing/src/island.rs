@@ -1,6 +1,10 @@
 use graph_lib::Coordinates;
 use lombok::Getter;
 
+// grid order: from north to south, from east to west
+// so always from high coordinate values to small
+pub const GRID_DIVISIONS: [usize; 36] = [3,9,16,22,28,33,39,44,49,53,57,61,64,67,69,70,71,72,72,71,70,69,67,64,61,57,53,49,44,39,33,28,22,16,9,3];
+const GRID_DISTANCE: f64 = 180.0 / GRID_DIVISIONS.len() as f64;
 
 /**
  * bounding box: [[min_lon, max_lon], [min_lat, max_lat]]
@@ -16,6 +20,12 @@ pub struct Island {
 }
 
 impl std::fmt::Display for Island {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Islandcenter: ({})", self.reference_points[0])
+    }
+}
+
+impl std::fmt::Debug for Island {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Islandcenter: ({})", self.reference_points[0])
     }
@@ -52,6 +62,7 @@ impl Island {
         let lon_distribution_distance = max(max_lon_jump, MIN_LON_DISTR_DIFF);
         let n = coastline_formatted.len().to_owned() as f64;
         (cog.0, cog.1) = (cog.0 / n, cog.1 / n);
+
 
         let mut lon_distribution: Vec<Vec<usize>> = vec![];
         const MIN_SIZE_FOR_LON_DISTR: usize = 1000;
@@ -128,6 +139,23 @@ impl Island {
             max_dist_from_ref,
             lon_distribution,
             lon_distribution_distance,
+        }
+    }
+
+    pub fn add_to_grid<'a>(&'a self, island_grid: &mut Vec<Vec<Vec<&'a Island>>>) {
+        // fill grid
+        for (lat_index, lat_row_count) in GRID_DIVISIONS.iter().enumerate() {
+            // check if boundingbox inside latitude row
+            // lower bounding box edge under upper line of lat row          && upper bounding box edge over lower line of lat_row
+            if self.bounding_box[1][0] < 90.0 - lat_index as f64 * GRID_DISTANCE && self.bounding_box[1][1] > 90.0 - (lat_index+1) as f64 * GRID_DISTANCE {
+                for cell_in_row in 0..*lat_row_count {
+                    let lon_dist = 360.0 / *lat_row_count as f64;
+                    // west box edge western of eastern border of grid                 && east box edge easter of western border of grid
+                    if self.bounding_box[0][0] < 180.0 - cell_in_row as f64 * lon_dist && self.bounding_box[0][1] > 180.0 - (cell_in_row+1) as f64 * lon_dist {
+                        island_grid[lat_index][cell_in_row].push(&self);
+                    }
+                }
+            }
         }
     }
 }
