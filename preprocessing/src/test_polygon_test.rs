@@ -49,19 +49,24 @@ pub fn static_polygon_tests() {
     let mut norm: f64;
     let mut counter = 0;
     let mut slow_points: Vec<(u128, f64, f64, i32)> = vec![];
+    let mut water_coordinates: Vec<[f64; 2]> = vec![];
 
     while counter < 1000 {
         (lon, lat, norm) = random_point_on_sphere(&mut rng);
 
         if norm <= 1.0 {
             let now = SystemTime::now();
-            point_in_polygon_test(lon, lat, &island_grid);
+            if !point_in_polygon_test(lon, lat, &island_grid) {
+                water_coordinates.push([(lon*100000.0).round()/100000.0, (lat*100000.0).round()/100000.0]);
+            }
             let elapsed_time = now.elapsed().unwrap().as_millis();
             if elapsed_time > 2 {slow_points.push((elapsed_time, lon, lat, counter));}
             counter += 1;
         }
     }
     println!("Finished 1000 points in {} millis", now.elapsed().unwrap().as_millis());
+    println!("{:?}", water_coordinates);
+
     for (elapsed_time, lon, lat, counter) in &slow_points {
         println!("{} millis for {},{} with index {}", elapsed_time, lon, lat, counter);
     }
