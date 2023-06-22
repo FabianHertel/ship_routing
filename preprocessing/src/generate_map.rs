@@ -7,7 +7,7 @@ use graph_lib::{Coordinates, Node, Edge};
 
 use crate::island::{Island, min_distance, GRID_DIVISIONS};
 
-const MOST_SOUTHERN_LAT_IN_SEA: f64 = -78.02;
+pub const MOST_SOUTHERN_LAT_IN_SEA: f64 = -78.02;
 
 pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
 
@@ -95,10 +95,9 @@ pub fn point_in_polygon_test(lon: f64, lat: f64, island_grid: &Vec<Vec<Vec<&Isla
             && lat < island.get_bounding_box()[1][1];
         if in_bounding_box {
             let in_range_of_ref_points =
-                min_distance(&Coordinates(lon, lat), &island.get_reference_points()).0
-                    < *island.get_max_dist_from_ref();
+                min_distance(&Coordinates(lon, lat), &island.get_reference_points()).0 < *island.get_max_dist_from_ref();
             if in_range_of_ref_points {
-                // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.max_dist_from_ref, distance_between(&island.reference_points[0], &Coordinates(lon, lat)), island.coastline.len());
+                // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.get_max_dist_from_ref(), &island.get_reference_points()[0].distance_to(&Coordinates(lon, lat)), island.get_coastline().len());
                 let mut in_water = false;
                 let polygon = &island.get_coastline();
                 if island.get_lon_distribution().len() > 0 {
@@ -106,6 +105,7 @@ pub fn point_in_polygon_test(lon: f64, lat: f64, island_grid: &Vec<Vec<Vec<&Isla
                         / island.get_lon_distribution_distance())
                         .floor() as usize;
                     let mut last_point_i: usize = 0;
+                    // println!("Checking {} edges", &island.get_lon_distribution()[index_in_lon_distr].len());
                     for point_i in &island.get_lon_distribution()[index_in_lon_distr] {
                         if *point_i != last_point_i + 1 && *point_i > 0 {
                             // check edge before only if not checked before
@@ -150,6 +150,7 @@ pub fn point_in_polygon_test(lon: f64, lat: f64, island_grid: &Vec<Vec<Vec<&Isla
                         last_point_i = *point_i;
                     }
                 } else {
+                    // println!("No lon distibution: Checking {} edges", &island.get_coastline().len());
                     for j in 1..polygon.len() {
                         // ignore first point in polygon, because first and last will be the same
                         let (start, end) = (&polygon[j - 1], &polygon[j]);

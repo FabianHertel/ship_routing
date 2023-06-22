@@ -57,7 +57,7 @@ pub fn static_polygon_tests() {
             let now = SystemTime::now();
             point_in_polygon_test(lon, lat, &island_grid);
             let elapsed_time = now.elapsed().unwrap().as_millis();
-            if elapsed_time > 5 {slow_points.push((elapsed_time, lon, lat, counter));}
+            if elapsed_time > 2 {slow_points.push((elapsed_time, lon, lat, counter));}
             counter += 1;
         }
     }
@@ -65,5 +65,7 @@ pub fn static_polygon_tests() {
     for (elapsed_time, lon, lat, counter) in &slow_points {
         println!("{} millis for {},{} with index {}", elapsed_time, lon, lat, counter);
     }
-    println!("Slow points as list: {}", slow_points.iter().map(|(_, lon, lat, _)| format!("[{lon},{lat}]")).reduce(|e, f| e + "," + &f).unwrap());
+    if slow_points.len() > 0 {
+        println!("Slow points as list: {}", slow_points.iter().map(|(_, lon, lat, _)| format!("[{lon},{lat}]")).reduce(|e, f| e + "," + &f).unwrap());
+    }
 }

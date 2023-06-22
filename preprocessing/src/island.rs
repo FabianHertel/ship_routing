@@ -1,6 +1,8 @@
 use graph_lib::Coordinates;
 use lombok::Getter;
 
+use crate::generate_map::MOST_SOUTHERN_LAT_IN_SEA;
+
 // grid order: from north to south, from east to west
 // so always from high coordinate values to small
 pub const GRID_DIVISIONS: [usize; 36] = [3,9,16,22,28,33,39,44,49,53,57,61,64,67,69,70,71,72,72,71,70,69,67,64,61,57,53,49,44,39,33,28,22,16,9,3];
@@ -53,6 +55,8 @@ impl Island {
             (cog.0, cog.1) = (cog.0 + coastline[i][0], cog.1 + coastline[i][1]);
             if i < coastline.len() - 1
                 && (coastline[i + 1][0] - coastline[i][0]).abs() > max_lon_jump
+                && coastline[i][1] > MOST_SOUTHERN_LAT_IN_SEA
+                // around southpole are edges with big jumps, but can be ignored; fix to distribute antarctica
             {
                 max_lon_jump = (coastline[i + 1][0] - coastline[i][0]).abs();
             }
@@ -66,14 +70,15 @@ impl Island {
 
         let mut lon_distribution: Vec<Vec<usize>> = vec![];
         const MIN_SIZE_FOR_LON_DISTR: usize = 1000;
-        if coastline.len() > MIN_SIZE_FOR_LON_DISTR
-            && (bounding_box[0][1] - bounding_box[0][0]) > 10.0 * lon_distribution_distance
-        {
-            let n_seperations = ((bounding_box[0][1] - bounding_box[0][0])
-                / lon_distribution_distance)
-                .ceil() as usize;
-            // println!("Max jump: {}; distr size: {}", max_lon_jump, n_seperations);
-            lon_distribution = vec![vec![]; n_seperations];
+        if coastline.len() > MIN_SIZE_FOR_LON_DISTR {
+            // println!("max: {}, min: {}, lon_dist: {}", bounding_box[0][1], bounding_box[0][0], lon_distribution_distance);
+            if (bounding_box[0][1] - bounding_box[0][0]) > 10.0 * lon_distribution_distance {
+                let n_seperations = ((bounding_box[0][1] - bounding_box[0][0])
+                    / lon_distribution_distance)
+                    .ceil() as usize;
+                // println!("Max jump: {}; distr size: {}", max_lon_jump, n_seperations);
+                lon_distribution = vec![vec![]; n_seperations];
+            }
         }
 
         let mut reference_points = vec![cog.clone()];
