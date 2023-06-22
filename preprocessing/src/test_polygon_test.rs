@@ -62,7 +62,8 @@ pub fn static_polygon_tests() {
         }
     }
     println!("Finished 1000 points in {} millis", now.elapsed().unwrap().as_millis());
-    for (elapsed_time, lon, lat, counter) in slow_points {
+    for (elapsed_time, lon, lat, counter) in &slow_points {
         println!("{} millis for {},{} with index {}", elapsed_time, lon, lat, counter);
     }
+    println!("Slow points as list: {}", slow_points.iter().map(|(_, lon, lat, _)| format!("[{lon},{lat}]")).reduce(|e, f| e + "," + &f).unwrap());
 }

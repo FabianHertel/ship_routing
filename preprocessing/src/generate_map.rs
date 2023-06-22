@@ -7,6 +7,8 @@ use graph_lib::{Coordinates, Node, Edge};
 
 use crate::island::{Island, min_distance, GRID_DIVISIONS};
 
+const MOST_SOUTHERN_LAT_IN_SEA: f64 = -78.02;
+
 pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
@@ -73,6 +75,9 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
  * Note: Antartica avoids -180 to 180 edge, so coastline goes to the southpole and around it.
  */
 pub fn point_in_polygon_test(lon: f64, lat: f64, island_grid: &Vec<Vec<Vec<&Island>>>) -> bool {
+    // no point in water is more south than -78.02
+    if lat < MOST_SOUTHERN_LAT_IN_SEA {return true}
+
     // in case lon or lat is exactly on the edge we can get an index out of bounds
     let (mut lon, mut lat) = (lon, lat);
     if lon == -180.0 {lon -= 0.0001};
