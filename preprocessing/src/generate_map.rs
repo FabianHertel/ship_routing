@@ -195,23 +195,7 @@ pub fn random_points_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_p
     let max_distance = 30.0;
 
     while counter < number_of_points {
-        x = 0.0;
-        y = 0.0;
-        z = 0.0;
-
-        while ((x * x + y * y + z * z).sqrt()) < 0.001 {
-            x = rng.gen_range(-1.0..1.0);
-            y = rng.gen_range(-1.0..1.0);
-            z = rng.gen_range(-1.0..1.0);
-        }
-        norm = (x * x + y * y + z * z).sqrt();
-
-        x = x / norm;
-        y = y / norm;
-        z = z / norm;
-
-        lat = z.asin().to_degrees(); // asin(Z/R)
-        lon = y.atan2(x).to_degrees(); // atan2(y,x)
+        (lon, lat, norm) = random_point_on_sphere(&mut rng);
 
         if norm <= 1.0 {
             if !point_in_polygon_test(lon, lat, island_grid) {
@@ -343,4 +327,27 @@ pub fn random_points_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_p
     let mut f = File::create("data/".to_owned() + filename_out).expect("Unable to create file");
     f.write_all(data.as_bytes()).expect("unable to write file");
 
+}
+
+#[inline]
+pub fn random_point_on_sphere<R: Rng + ?Sized>(rng: &mut R) -> (f64, f64, f64) {
+    let mut x: f64 = 0.0;
+    let mut y: f64 = 0.0;
+    let mut z: f64 = 0.0;
+
+    while ((x * x + y * y + z * z).sqrt()) < 0.001 {
+        x = rng.gen_range(-1.0..1.0);
+        y = rng.gen_range(-1.0..1.0);
+        z = rng.gen_range(-1.0..1.0);
+    }
+    let norm = (x * x + y * y + z * z).sqrt();
+
+    x = x / norm;
+    y = y / norm;
+    z = z / norm;
+
+    let lat = z.asin().to_degrees(); // asin(Z/R)
+    let lon = y.atan2(x).to_degrees(); // atan2(y,x)
+
+    return (lon, lat, norm);
 }
