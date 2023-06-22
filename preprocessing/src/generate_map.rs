@@ -248,7 +248,7 @@ pub fn random_points_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_p
                 let mut closest_se = 0;
                 let mut distance_se = 40000.0;
                 let mut temp_nodes: Vec<Node> = Vec::new();
-                let mut distance_to_node = 40000.0;
+                let mut distance_to_node;
 
                 temp_nodes.extend(&grid[i][j]);
                 temp_nodes.extend(

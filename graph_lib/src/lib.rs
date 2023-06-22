@@ -44,7 +44,6 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
 
     let mut nodes: Vec<Node> = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
-    let mut offsets: Vec<usize> = Vec::new();
     
     let mut num_nodes = 0;
     let mut num_edges = 0;
@@ -67,20 +66,20 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
              Vec::new()
             });
         
-        if(num_line == 0){
+        if num_line == 0 {
             num_nodes = numbers[0] as usize;
         }
-        else if(num_line == 1){
+        else if num_line == 1 {
             num_edges = numbers[0] as usize;
         } 
-        else if (num_line > 1 && num_line < num_nodes + 2 ) {
+        else if num_line > 1 && num_line < num_nodes + 2  {
             nodes.push(Node{
                 id: numbers[0] as usize,
                 lat: numbers[1],
                 lon: numbers[2],
             })
         } 
-        else if (num_line >= num_nodes + 2)  {
+        else if num_line >= num_nodes + 2  {
             edges.push(Edge { 
                 src: numbers[0] as usize,
                 tgt: numbers[1] as usize,
