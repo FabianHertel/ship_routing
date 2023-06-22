@@ -153,7 +153,7 @@ fn line_cross_check(start: &Coordinates, end: &Coordinates, lon: f64, lat: f64) 
             let slope = (lat - start.1) * (end.0 - start.0)
                 - (end.1 - start.1) * (lon - start.0);
             if (slope < 0.0) != (end.0 < start.0) {
-                println!("Line crossed (rare case!)");
+                // println!("Line crossed (rare case!)");
                 return true;
             }
         }
@@ -175,6 +175,7 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_poin
     let mut data = String::new();
     let max_distance = 30.0;
 
+    let now = SystemTime::now();
     while counter < number_of_points {
         (lon, lat, norm) = random_point_on_sphere(&mut rng);
 
@@ -189,11 +190,14 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_poin
                 grid[(lon.round() + 180.0 - 1.0) as usize][(lat.round() + 90.0 - 1.0) as usize]
                     .push(new_node);
                 counter = counter + 1;
+                if counter % 100000 == 0 {println!("Generated {} points", counter)}
                 //print!("[{},{}],", lon, lat);
             }
         }
     }
+    println!("Finished generating points in {} sek", now.elapsed().unwrap().as_secs());
 
+    let now = SystemTime::now();
     // set ids
     for i in 0..360 {
         for j in 0..180 {
@@ -205,6 +209,7 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_poin
         }
     }
 
+    print!("Connected lat colomns: ");
     for i in 0..360 {
         for j in 0..180 {
             if grid[i][j].len() >= 1 {
@@ -279,8 +284,12 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_poin
                 }
             }
         }
+        print!("{}-{},", i, i+1)
     }
+    println!("");
+    println!("Finished graph connecting in {} sek", now.elapsed().unwrap().as_secs());
 
+    let now = SystemTime::now();
     edges.sort_by(|a, b| a.src.cmp(&b.src));
 
     data = data + &points.len().to_string() + "\n";
@@ -307,6 +316,7 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_poin
 
     let mut f = File::create("data/".to_owned() + filename_out).expect("Unable to create file");
     f.write_all(data.as_bytes()).expect("unable to write file");
+    println!("Finished file write {} sek", now.elapsed().unwrap().as_secs());
 
 }
 
