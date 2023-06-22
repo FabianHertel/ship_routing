@@ -21,7 +21,7 @@ pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
     islands.iter().for_each(|island| island.add_to_grid(&mut island_grid));
     println!("2/?: Finished precalculations in {} sek", now.elapsed().unwrap().as_secs());
 
-    random_points_on_sphere(&island_grid, 1000000, filename_out);
+    generate_graph_on_sphere(&island_grid, 1000000, filename_out);
 
     Ok(())
 }
@@ -177,14 +177,11 @@ pub fn point_in_polygon_test(lon: f64, lat: f64, island_grid: &Vec<Vec<Vec<&Isla
     return false;
 }
 
-pub fn random_points_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_points: u32, filename_out: &str) -> () {
+fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_points: u32, filename_out: &str) -> () {
     let mut rng = rand::thread_rng();
     let mut new_node: Node;
     let mut points: Vec<Node> = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
-    let mut x: f64;
-    let mut y: f64;
-    let mut z: f64;
     let mut lat: f64;
     let mut lon: f64;
     let mut norm: f64;
