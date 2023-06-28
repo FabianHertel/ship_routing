@@ -23,7 +23,7 @@ pub fn import_pbf(path: &OsString, prefix: &str) -> Result<(), Box<dyn Error>> {
     let now = SystemTime::now();
     let coordinates = read_coordinates(path, &coastline);
 
-    let coastline_coordinates: Vec<Vec<Vec<f64>>> = coastline.into_iter().map(|way| way.into_iter().map(|point_ref| {
+    let coastline_coordinates: Vec<Vec<Vec<f32>>> = coastline.into_iter().map(|way| way.into_iter().map(|point_ref| {
         let coordinates = coordinates.get(&point_ref).unwrap();
         vec![coordinates.0, coordinates.1]
     }).collect()).collect();     // merge ways with coordinates and convert coordinates to vector
@@ -37,7 +37,7 @@ pub fn import_pbf(path: &OsString, prefix: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str, reduce: bool) {
+pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f32>>>, prefix: &str, reduce: bool) {
     coastlines.sort_by(|a,b| b.len().cmp(&a.len()));
     if reduce {
         coastlines = reduces_coastlines(coastlines);
@@ -72,9 +72,9 @@ pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str, reduce: b
 }
 
 
-fn reduces_coastlines(mut coastlines: Vec<Vec<Vec<f64>>>) -> Vec<Vec<Vec<f64>>> {
+fn reduces_coastlines(mut coastlines: Vec<Vec<Vec<f32>>>) -> Vec<Vec<Vec<f32>>> {
     return coastlines.par_iter_mut().filter(|a| a.len() > 400).map(|a| {
-            let mut reduced_line: Vec<Vec<f64>> = a.iter().step_by(100).map(|a| a.to_owned()).collect();
+            let mut reduced_line: Vec<Vec<f32>> = a.iter().step_by(100).map(|a| a.to_owned()).collect();
             reduced_line.push(a.last().unwrap().to_owned());
             return reduced_line;
     }).collect()
@@ -116,7 +116,7 @@ fn read_coastline(path: &OsString) -> Vec<Vec<i64>> {
 
 /* read coordinates of point ids from ways as vectors
  */
-fn read_coordinates(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f64, f64)> {
+fn read_coordinates(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f32, f32)> {
     let reader = ElementReader::from_path(path);
     let node_set: HashSet<i64> = ways.to_owned().into_iter().reduce(|mut way_a, mut way_b| {
         way_a.append(&mut way_b);
@@ -128,7 +128,7 @@ fn read_coordinates(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f64,
             match element {
                 Element::DenseNode(node) => {
                     if node_set.contains(&node.id) {    // add coordinates to loop vector which will be returned
-                        LinkedList::from([(node.id, (node.lon() as f64, node.lat() as f64))])
+                        LinkedList::from([(node.id, (node.lon() as f32, node.lat() as f32))])
                     } else {
                         LinkedList::new()
                     }

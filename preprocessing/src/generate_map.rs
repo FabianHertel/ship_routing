@@ -6,13 +6,13 @@ use graph_lib::{Coordinates, Node, Edge};
 
 use crate::island::{Island, min_distance, GRID_DIVISIONS};
 
-pub const MOST_SOUTHERN_LAT_IN_SEA: f64 = -78.02;
+pub const MOST_SOUTHERN_LAT_IN_SEA: f32 = -78.02;
 
 pub fn generate_map(filename_out: &str, import_prefix: &str) -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons(import_prefix);
+    let coastlines: Vec<Vec<Vec<f32>>> = read_geojsons(import_prefix);
     println!("1/?: Finished in {} sek", now.elapsed().unwrap().as_secs());
 
     println!("2/?: Precalculations for islands/continents ...");
@@ -30,8 +30,8 @@ pub fn generate_map(filename_out: &str, import_prefix: &str) -> Result<(), Box<d
 /**
  * read continents and islands from geojsons and sort it from big to small
  */
-pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
-    let mut coastlines: Vec<Vec<Vec<f64>>> =  ["continents", "big_islands", "islands", "small_islands"]
+pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f32>>> {
+    let mut coastlines: Vec<Vec<Vec<f32>>> =  ["continents", "big_islands", "islands", "small_islands"]
         .par_iter()
         .map(|filename| {
             let now = SystemTime::now();
@@ -39,11 +39,18 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
             let geojson_str = fs::read_to_string(&filepath)
                 .expect(&format!("Unable to read JSON file {}", &filepath));
             let geojson_str = &geojson_str[18..];
-            let coastlines_part: Vec<Vec<Vec<f64>>> = geojson_str.split("[[").into_iter().map(|island_str| {
+            let coastlines_part: Vec<Vec<Vec<f32>>> = geojson_str.split("[[").into_iter().map(|island_str| {
                 if island_str.len() > 5 {
                     island_str.split('[').into_iter().map(|coordinates| {
                         let mut coordinates_split = coordinates.split(&[',', ']', ' '][..]);
-                        return vec![coordinates_split.nth(0).unwrap().parse::<f64>().unwrap(), coordinates_split.nth(1).unwrap().parse::<f64>().unwrap()];
+                        let mut coordinates = vec![];
+                        while coordinates.len() < 2 {
+                            let number = coordinates_split.nth(0);
+                            if number != Some("") {
+                                coordinates.push(number.unwrap().parse::<f32>().unwrap())
+                            }
+                        }
+                        return coordinates;
                     }).collect()
                 } else {
                     vec![]
@@ -79,7 +86,7 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
  * If it is even, we are in the sea. If odd, we are on land.
  * Note: Antartica avoids -180 to 180 edge, so coastline goes to the southpole and around it.
  */
-pub fn point_in_polygon_test(mut lon: f64, mut lat: f64, island_grid: &Vec<Vec<Vec<&Island>>>) -> bool {
+pub fn point_in_polygon_test(mut lon: f32, mut lat: f32, island_grid: &Vec<Vec<Vec<&Island>>>) -> bool {
     // no point in water is more south than -78.02
     if lat < MOST_SOUTHERN_LAT_IN_SEA {return true}
 
@@ -88,8 +95,8 @@ pub fn point_in_polygon_test(mut lon: f64, mut lat: f64, island_grid: &Vec<Vec<V
     if lat == -90.0 {lat -= 0.0001};
 
     // northpole is row 0, southpole is last row
-    let grid_row = (-(lat - 90.0) * GRID_DIVISIONS.len() as f64 / 180.0) as usize;
-    let cell_in_row = (-(lon - 180.0) * GRID_DIVISIONS[grid_row] as f64 / 360.0) as usize;
+    let grid_row = (-(lat - 90.0) * GRID_DIVISIONS.len() as f32 / 180.0) as usize;
+    let cell_in_row = (-(lon - 180.0) * GRID_DIVISIONS[grid_row] as f32 / 360.0) as usize;
     // println!("(lon, lat): {},{} makes {},{}", lon, lat, grid_row, cell_in_row);
     for island in &island_grid[grid_row][cell_in_row] {
         // println!("Island in cell: {}", island);
@@ -146,7 +153,7 @@ pub fn point_in_polygon_test(mut lon: f64, mut lat: f64, island_grid: &Vec<Vec<V
  * checks if point with lon lat crosses edge between start and end by going north
  */
 #[inline]
-fn line_cross_check(start: &Coordinates, end: &Coordinates, lon: f64, lat: f64) -> bool {
+fn line_cross_check(start: &Coordinates, end: &Coordinates, lon: f32, lat: f32) -> bool {
     if (start.0 > lon) != (end.0 > lon) {
         // check if given lon of point is between start and end point of edge
         if (start.1 > lat) && (end.1 > lat) {
@@ -171,9 +178,9 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_poin
     let mut new_node: Node;
     let mut points: Vec<Node> = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
-    let mut lat: f64;
-    let mut lon: f64;
-    let mut norm: f64;
+    let mut lat: f32;
+    let mut lon: f32;
+    let mut norm: f32;
     let mut id = 0;
     let mut counter = 0;
     let mut grid: Vec<Vec<Vec<Node>>> = vec![vec![Vec::new(); 180]; 360];
@@ -326,10 +333,10 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_poin
 }
 
 #[inline]
-pub fn random_point_on_sphere<R: Rng + ?Sized>(rng: &mut R) -> (f64, f64, f64) {
-    let mut x: f64 = 0.0;
-    let mut y: f64 = 0.0;
-    let mut z: f64 = 0.0;
+pub fn random_point_on_sphere<R: Rng + ?Sized>(rng: &mut R) -> (f32, f32, f32) {
+    let mut x: f32 = 0.0;
+    let mut y: f32 = 0.0;
+    let mut z: f32 = 0.0;
 
     while ((x * x + y * y + z * z).sqrt()) < 0.001 {
         x = rng.gen_range(-1.0..1.0);

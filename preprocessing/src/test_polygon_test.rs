@@ -4,11 +4,11 @@ use rand::{rngs::StdRng, SeedableRng};
 
 use crate::{generate_map::{read_geojsons, point_in_polygon_test, random_point_on_sphere}, island::{Island, GRID_DIVISIONS}};
 
-pub fn static_polygon_tests() {
+pub fn static_polygon_tests(import_prefix: &str) {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
+    let coastlines: Vec<Vec<Vec<f32>>> = read_geojsons(import_prefix);
     println!("1/?: Finished in {} sek", now.elapsed().unwrap().as_secs());
 
 
@@ -44,12 +44,12 @@ pub fn static_polygon_tests() {
     println!("Testing 1000 random points...");
 
     let mut rng: StdRng = StdRng::seed_from_u64(0);     // seed in contrast to real to have comparable conditions
-    let mut lat: f64;
-    let mut lon: f64;
-    let mut norm: f64;
+    let mut lat: f32;
+    let mut lon: f32;
+    let mut norm: f32;
     let mut counter = 0;
-    let mut slow_points: Vec<(u128, f64, f64, i32)> = vec![];
-    let mut water_coordinates: Vec<[f64; 2]> = vec![];
+    let mut slow_points: Vec<(u128, f32, f32, i32)> = vec![];
+    let mut water_coordinates: Vec<[f32; 2]> = vec![];
 
     while counter < 1000 {
         (lon, lat, norm) = random_point_on_sphere(&mut rng);
@@ -57,7 +57,7 @@ pub fn static_polygon_tests() {
         if norm <= 1.0 {
             let now = SystemTime::now();
             if !point_in_polygon_test(lon, lat, &island_grid) {
-                water_coordinates.push([lon as f64, lat as f64]);
+                water_coordinates.push([lon as f32, lat as f32]);
             }
             let elapsed_time = now.elapsed().unwrap().as_millis();
             if elapsed_time > 2 {slow_points.push((elapsed_time, lon, lat, counter));}

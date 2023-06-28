@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             
             println!("1/2: Read GeoJSONs parallel ...");
             let now = SystemTime::now();
-            let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons(import_prefix.to_str().unwrap());
+            let coastlines: Vec<Vec<Vec<f32>>> = read_geojsons(import_prefix.to_str().unwrap());
             println!("1/2: Finished in {} sek", now.elapsed()?.as_secs());
             
             println!("2/2: Write GeoJSON ...");
@@ -63,7 +63,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             generate_map(&filename_out, &import_prefix)?;
         }
         Some("test") => {
-            static_polygon_tests();
+            let import_prefix = match std::env::args_os().nth(2) {
+                Some(osstring) => osstring.to_str().unwrap().to_string(),
+                None => "reduced".to_string()
+            };
+            static_polygon_tests(&import_prefix);
         }
 
         Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),

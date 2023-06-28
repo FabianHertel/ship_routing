@@ -13,7 +13,7 @@ static mut GRAPH: Graph = Graph {
 };
 
 #[tauri::command]
-fn route(coordinates: [[f64;2];2]) -> Vec<[f64;2]> {
+fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
 
     let src = Coordinates(coordinates[0][1], coordinates[0][0]);
     let tgt = Coordinates(coordinates[1][1], coordinates[1][0]);

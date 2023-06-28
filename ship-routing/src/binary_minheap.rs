@@ -48,7 +48,7 @@ impl BinaryMinHeap {
     }
 
     /// Fixes the heap structure at `index`
-    fn reheap(&mut self, index: usize, priorities: &Vec<f64>) {
+    fn reheap(&mut self, index: usize, priorities: &Vec<f32>) {
         let len = self.heap.len();
         let left = get_left(index);
         let right = get_right(index);
@@ -70,7 +70,7 @@ impl BinaryMinHeap {
     }
 
     /// Push a key on the heap
-    pub fn push(&mut self, key: usize, priorities: &Vec<f64>) {
+    pub fn push(&mut self, key: usize, priorities: &Vec<f32>) {
         self.heap.push(key);
         let mut index = self.heap.len() - 1;
         self.positions[key] = index;
@@ -84,7 +84,7 @@ impl BinaryMinHeap {
     }
 
     /// Pop the minimum key from the heap
-    pub fn pop(&mut self, priorities: &Vec<f64>) -> usize {
+    pub fn pop(&mut self, priorities: &Vec<f32>) -> usize {
         let min_key = self.heap[0];
         self.positions[min_key] = usize::MAX;
 
@@ -100,7 +100,7 @@ impl BinaryMinHeap {
     /// Decrease the position of a key.
     /// This method must be called iff the priority of a key
     /// decreases after the heap creation.
-    pub fn decrease_key(&mut self, key: usize, priorities: &Vec<f64>) {
+    pub fn decrease_key(&mut self, key: usize, priorities: &Vec<f32>) {
         let mut index = self.positions[key];
         let mut parent = get_parent(index);
         while index > 0 && priorities[self.heap[parent]] > priorities[self.heap[index]] {
@@ -116,7 +116,7 @@ impl BinaryMinHeap {
     }
 
     /// Check whether a key is in the heap. If yes, update it, otherwise insert it.
-    pub fn insert_or_update(&mut self, key: usize, priorities: &Vec<f64>) {
+    pub fn insert_or_update(&mut self, key: usize, priorities: &Vec<f32>) {
         if self.contains(key) {
             self.decrease_key(key, priorities);
         } else {

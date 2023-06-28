@@ -53,7 +53,7 @@ fn process_edges(graph: &Graph, node_id: usize, result: &mut DijkstraResult, pq:
 
 #[derive(Debug)]
 pub struct DijkstraResult {
-    dists: Vec<f64>,
+    dists: Vec<f32>,
     preds: Vec<usize>,
 }
 
@@ -61,7 +61,7 @@ impl DijkstraResult {
     /// Creates a new `DijkstraResult` instance for given graph size
     fn new(num_nodes: usize) -> Self {
         Self {
-            dists: vec![f64::MAX; num_nodes],
+            dists: vec![f32::MAX; num_nodes],
             preds: vec![usize::MAX; num_nodes],
         }
     }
@@ -69,7 +69,7 @@ impl DijkstraResult {
     /// Returns the dijkstra result for the node with id `node_id` in a `Some` or `None` if the
     /// node is not reachable from the source node
     pub fn result_of<'a>(&self, graph: &'a Graph, node_id: usize) -> Option<ShortestPath> {
-        if self.dists[node_id] == f64::MAX { None } else {
+        if self.dists[node_id] == f32::MAX { None } else {
             Some(ShortestPath::new(self.dists[node_id], self.build_path(graph, node_id)))
         }
     }

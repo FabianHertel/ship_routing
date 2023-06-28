@@ -6,7 +6,7 @@ use crate::generate_map::MOST_SOUTHERN_LAT_IN_SEA;
 // grid order: from north to south, from east to west
 // so always from high coordinate values to small
 pub const GRID_DIVISIONS: [usize; 36] = [3,9,16,22,28,33,39,44,49,53,57,61,64,67,69,70,71,72,72,71,70,69,67,64,61,57,53,49,44,39,33,28,22,16,9,3];
-const GRID_DISTANCE: f64 = 180.0 / GRID_DIVISIONS.len() as f64;
+const GRID_DISTANCE: f32 = 180.0 / GRID_DIVISIONS.len() as f32;
 
 /**
  * bounding box: [[min_lon, max_lon], [min_lat, max_lat]]
@@ -14,11 +14,11 @@ const GRID_DISTANCE: f64 = 180.0 / GRID_DIVISIONS.len() as f64;
 #[derive(Getter)]
 pub struct Island {
     coastline: Vec<Coordinates>,
-    bounding_box: [[f64; 2]; 2],
+    bounding_box: [[f32; 2]; 2],
     reference_points: Vec<Coordinates>,
-    max_dist_from_ref: f64,
+    max_dist_from_ref: f32,
     lon_distribution: Vec<Vec<usize>>,
-    lon_distribution_distance: f64,
+    lon_distribution_distance: f32,
 }
 
 impl std::fmt::Display for Island {
@@ -34,7 +34,7 @@ impl std::fmt::Debug for Island {
 }
 
 impl Island {
-    pub fn new(coastline: Vec<Vec<f64>>) -> Island {
+    pub fn new(coastline: Vec<Vec<f32>>) -> Island {
         let mut cog = Coordinates(0.0, 0.0);
         let mut bounding_box = [[180.0, -180.0], [90.0, -90.0]];
         let mut coastline_formatted: Vec<Coordinates> = vec![];
@@ -62,9 +62,9 @@ impl Island {
             }
             coastline_formatted.push(Coordinates::from_vec(&coastline[i]));
         }
-        const MIN_LON_DISTR_DIFF: f64 = 0.2;
+        const MIN_LON_DISTR_DIFF: f32 = 0.2;
         let lon_distribution_distance = max(max_lon_jump, MIN_LON_DISTR_DIFF);
-        let n = coastline_formatted.len().to_owned() as f64;
+        let n = coastline_formatted.len().to_owned() as f32;
         (cog.0, cog.1) = (cog.0 / n, cog.1 / n);
 
 
@@ -105,7 +105,7 @@ impl Island {
         // calculate more reference points (additional to cog) to get shorter max distances
         let mut refpoint_most_far_away = cog;
         while max_dist_from_ref > 1000.0
-            && (distance_sum / coastline_formatted.len() as f64) < 0.5 * max_dist_from_ref
+            && (distance_sum / coastline_formatted.len() as f32) < 0.5 * max_dist_from_ref
         {
             let new_refpoint = Coordinates(
                 (refpoint_most_far_away.0 + most_far_away_point.0) / 2.0,
@@ -114,7 +114,7 @@ impl Island {
             print!(
                 "Dist: {}, with average: {} -> Generated {}, {}",
                 max_dist_from_ref,
-                (distance_sum / coastline_formatted.len() as f64),
+                (distance_sum / coastline_formatted.len() as f32),
                 new_refpoint.0,
                 new_refpoint.1
             );
@@ -133,7 +133,7 @@ impl Island {
             println!(
                 "; new dist: {}, new average: {}",
                 max_dist_from_ref,
-                (distance_sum / coastline_formatted.len() as f64)
+                (distance_sum / coastline_formatted.len() as f32)
             );
         }
 
@@ -152,11 +152,11 @@ impl Island {
         for (lat_index, lat_row_count) in GRID_DIVISIONS.iter().enumerate() {
             // check if boundingbox inside latitude row
             // lower bounding box edge under upper line of lat row          && upper bounding box edge over lower line of lat_row
-            if self.bounding_box[1][0] < 90.0 - lat_index as f64 * GRID_DISTANCE && self.bounding_box[1][1] > 90.0 - (lat_index+1) as f64 * GRID_DISTANCE {
+            if self.bounding_box[1][0] < 90.0 - lat_index as f32 * GRID_DISTANCE && self.bounding_box[1][1] > 90.0 - (lat_index+1) as f32 * GRID_DISTANCE {
                 for cell_in_row in 0..*lat_row_count {
-                    let lon_dist = 360.0 / *lat_row_count as f64;
+                    let lon_dist = 360.0 / *lat_row_count as f32;
                     // west box edge western of eastern border of grid                 && east box edge easter of western border of grid
-                    if self.bounding_box[0][0] < 180.0 - cell_in_row as f64 * lon_dist && self.bounding_box[0][1] > 180.0 - (cell_in_row+1) as f64 * lon_dist {
+                    if self.bounding_box[0][0] < 180.0 - cell_in_row as f32 * lon_dist && self.bounding_box[0][1] > 180.0 - (cell_in_row+1) as f32 * lon_dist {
                         island_grid[lat_index][cell_in_row].push(&self);
                     }
                 }
@@ -165,7 +165,7 @@ impl Island {
     }
 }
 
-fn max(v1: f64, v2: f64) -> f64 {
+fn max(v1: f32, v2: f32) -> f32 {
     if v1 > v2 {
         return v1;
     } else {
@@ -174,7 +174,7 @@ fn max(v1: f64, v2: f64) -> f64 {
 }
 
 
-pub fn min_distance(x: &Coordinates, reference_points: &Vec<Coordinates>) -> (f64, Coordinates) {
+pub fn min_distance(x: &Coordinates, reference_points: &Vec<Coordinates>) -> (f32, Coordinates) {
     let mut min_distance = 40000.0;
     let mut closest_refpoint = &reference_points[0];
     reference_points.iter().for_each(|reference_point| {

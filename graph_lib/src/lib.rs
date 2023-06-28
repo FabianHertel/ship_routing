@@ -1,22 +1,22 @@
-use std::{f64::consts::PI, fmt::{Display, Formatter}};
+use std::{f32::consts::PI, fmt::{Display, Formatter}};
 use serde::{Serialize, Deserialize};
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
-pub struct Coordinates(pub f64, pub f64);
+pub struct Coordinates(pub f32, pub f32);
 
 impl Coordinates {
-    pub fn from_vec(vector: &Vec<f64>) -> Coordinates {
+    pub fn from_vec(vector: &Vec<f32>) -> Coordinates {
         return Coordinates(vector[0], vector[1])
     }
     pub fn from_str(str: &str) -> Coordinates {
         let split:Vec<&str> = str.split(",").collect();
-        return Coordinates(split[0].parse::<f64>().unwrap(), split[1].parse::<f64>().unwrap());
+        return Coordinates(split[0].parse::<f32>().unwrap(), split[1].parse::<f32>().unwrap());
     }
 
-    pub fn distance_to(&self, y: &Coordinates) -> f64 {
+    pub fn distance_to(&self, y: &Coordinates) -> f32 {
         return distance_between(self.0, self.1, y.0, y.1);
     }
 }
@@ -27,13 +27,13 @@ impl Display for Coordinates {
     }
 }
 
-pub fn distance_between(lon1:f64, lat1:f64, lon2:f64, lat2:f64) -> f64 {
+pub fn distance_between(lon1:f32, lat1:f32, lon2:f32, lat2:f32) -> f32 {
     // from: http://www.movable-type.co.uk/scripts/latlong.html
     let φ1 = lat1 * PI/180.0; // φ, λ in radians
     let φ2 = lat2 * PI/180.0;
     let dφ = (lat2-lat1) * PI/180.0;
     let dλ = (lon2-lon1) * PI/180.0;
-    const EARTH_RADIUS: f64 = 6371.0;
+    const EARTH_RADIUS: f32 = 6371.0;
 
     let haversine = (dφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (dλ/2.0).sin().powi(2);
     let distance = EARTH_RADIUS * 2.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
@@ -57,10 +57,10 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
         let line = line?;
         line.split(" ");
 
-        let numbers: Vec<f64> = line
+        let numbers: Vec<f32> = line
         .split_whitespace()
-        .map(|s| s.parse::<f64>())
-        .collect::<Result<Vec<f64>, _>>()
+        .map(|s| s.parse::<f32>())
+        .collect::<Result<Vec<f32>, _>>()
         .unwrap_or_else(|_| {
              println!("Failed to parse numbers in line: {}", line); 
              Vec::new()
@@ -124,7 +124,7 @@ pub struct Graph {
 impl Graph {
     pub fn closest_node(&self, point: &Coordinates) -> &Node {
         let mut closest_node = &self.nodes[0];
-        let mut closest_dist = f64::MAX;
+        let mut closest_dist = f32::MAX;
         for node in &self.nodes {
             let distance = node.distance_to(point);
             if distance < closest_dist {
@@ -158,12 +158,12 @@ impl Graph {
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct Node {
     pub id: usize,
-    pub lon: f64,
-    pub lat: f64
+    pub lon: f32,
+    pub lat: f32
 }
 
 impl Node {
-    pub fn distance_to(&self, y: &Coordinates) -> f64 {
+    pub fn distance_to(&self, y: &Coordinates) -> f32 {
         return distance_between(self.lon, self.lat, y.0, y.1);
     }
 }
@@ -175,21 +175,21 @@ pub struct Edge {
     /// The id of the edge's target node
     pub tgt: usize,
     /// The edge's weight, i.e., the distance between its source and target
-    pub dist: f64,
+    pub dist: f32,
 }
 
 
 /// Result of a shortest path algorithm
-pub struct ShortestPath(f64, Vec<Node>);
+pub struct ShortestPath(f32, Vec<Node>);
 
 impl ShortestPath {
     /// Creates a new node result with distance `dist` and path `path` to the associated node
-    pub fn new(dist: f64, path: Vec<Node>) -> Self {
+    pub fn new(dist: f32, path: Vec<Node>) -> Self {
         Self(dist, path)
     }
 
     /// Returns the distance to the associated node
-    pub fn dist(&self) -> f64 {
+    pub fn dist(&self) -> f32 {
         self.0
     }
 
