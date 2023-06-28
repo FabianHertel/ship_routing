@@ -1,5 +1,4 @@
 use std::{time::SystemTime, fs::{self, File}, error::Error, io::{Write}};
-use geojson::{GeoJson, Geometry, Value};
 use rayon::{prelude::*};
 use rand::Rng;
 
@@ -9,11 +8,11 @@ use crate::island::{Island, min_distance, GRID_DIVISIONS};
 
 pub const MOST_SOUTHERN_LAT_IN_SEA: f64 = -78.02;
 
-pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
+pub fn generate_map(filename_out: &str, import_prefix: &str) -> Result<(), Box<dyn Error>> {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
+    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons(import_prefix);
     println!("1/?: Finished in {} sek", now.elapsed().unwrap().as_secs());
 
     println!("2/?: Precalculations for islands/continents ...");
@@ -32,24 +31,30 @@ pub fn generate_map(filename_out: &str) -> Result<(), Box<dyn Error>> {
  * read continents and islands from geojsons and sort it from big to small
  */
 pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f64>>> {
-    let mut coastlines =  ["continents", "big_islands", "islands", "small_islands"]
+    let mut coastlines: Vec<Vec<Vec<f64>>> =  ["continents", "big_islands", "islands", "small_islands"]
         .par_iter()
         .map(|filename| {
             let now = SystemTime::now();
             let filepath = format!("./data/geojson/{}.json", prefix.to_owned() + "_" + filename);
             let geojson_str = fs::read_to_string(&filepath)
                 .expect(&format!("Unable to read JSON file {}", &filepath));
-            let geojson: GeoJson = geojson_str.parse::<GeoJson>().unwrap(); // needs much of time (4-5min for world)
+            let geojson_str = &geojson_str[18..];
+            let coastlines_part: Vec<Vec<Vec<f64>>> = geojson_str.split("[[").into_iter().map(|island_str| {
+                if island_str.len() > 5 {
+                    island_str.split('[').into_iter().map(|coordinates| {
+                        let mut coordinates_split = coordinates.split(&[',', ']', ' '][..]);
+                        return vec![coordinates_split.nth(0).unwrap().parse::<f64>().unwrap(), coordinates_split.nth(1).unwrap().parse::<f64>().unwrap()];
+                    }).collect()
+                } else {
+                    vec![]
+                }
+            }).collect();
             println!(
                 "Parsing {} finished after {} sek",
                 filepath,
                 now.elapsed().unwrap().as_secs()
             );
-            let geometry: Geometry = Geometry::try_from(geojson).unwrap();
-            match geometry.value {
-                Value::MultiLineString(coords) => coords,
-                _ => vec![],
-            }
+            return coastlines_part;
         })
         .reduce(
             || vec![],

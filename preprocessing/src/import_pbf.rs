@@ -6,7 +6,7 @@ use rayon::prelude::*;
 
 /* filters ways for tag coastline and then searches for coordinates of referenced nodes
  */
-pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
+pub fn import_pbf(path: &OsString, prefix: &str) -> Result<(), Box<dyn Error>> {
     println!("1/4: Read and filter OSM ways with tag 'coastline'...");
     let now = SystemTime::now();
     let waypoint_refs: Vec<Vec<i64>> = read_coastline(path);     //filter ways
@@ -31,7 +31,7 @@ pub fn import_pbf(path: &OsString) -> Result<(), Box<dyn Error>> {
 
     println!("4/4: Write GeoJSON ...");
     let now = SystemTime::now();
-    print_geojson(coastline_coordinates, "complete", false);
+    print_geojson(coastline_coordinates, prefix, false);
     println!("4/4: Finished in {} sek", now.elapsed()?.as_secs());
 
     Ok(())
@@ -46,16 +46,18 @@ pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f64>>>, prefix: &str, reduce: b
     const N_CONTINENTS: usize = 10;
     const N_BIG_ISLANDS: usize = 1000;
     const N_ISLANDS: usize = 20000;
+    
+    let empty_vec = vec![];
 
-    let continents = if coastlines.len() > N_CONTINENTS {coastlines[..N_CONTINENTS].to_vec()} else {coastlines[..coastlines.len()].to_vec()};
-    let big_islands = if coastlines.len() < N_CONTINENTS {vec![]} else {
-        if coastlines.len() > N_BIG_ISLANDS {coastlines[N_CONTINENTS..N_BIG_ISLANDS].to_vec()} else {coastlines[N_CONTINENTS..coastlines.len()].to_vec()}
+    let continents = if coastlines.len() > N_CONTINENTS {&coastlines[..N_CONTINENTS]} else {&coastlines[..coastlines.len()]};
+    let big_islands = if coastlines.len() < N_CONTINENTS {&empty_vec} else {
+        if coastlines.len() > N_BIG_ISLANDS {&coastlines[N_CONTINENTS..N_BIG_ISLANDS]} else {&coastlines[N_CONTINENTS..coastlines.len()]}
     };
-    let islands = if coastlines.len() < N_BIG_ISLANDS {vec![]} else {
-        if coastlines.len() > N_ISLANDS {coastlines[N_BIG_ISLANDS..N_ISLANDS].to_vec()} else {coastlines[N_BIG_ISLANDS..coastlines.len()].to_vec()}
+    let islands = if coastlines.len() < N_BIG_ISLANDS {&empty_vec} else {
+        if coastlines.len() > N_ISLANDS {&coastlines[N_BIG_ISLANDS..N_ISLANDS]} else {&coastlines[N_BIG_ISLANDS..coastlines.len()]}
     };
-    let small_islands = if coastlines.len() < N_ISLANDS {vec![]} else {
-        coastlines[N_ISLANDS..coastlines.len()].to_vec()
+    let small_islands = if coastlines.len() < N_ISLANDS {&empty_vec} else {
+        &coastlines[N_ISLANDS..coastlines.len()]
     };
 
     let iterator_objects = [("continents", continents), ("big_islands", big_islands), ("islands", islands), ("small_islands", small_islands)];
@@ -126,7 +128,7 @@ fn read_coordinates(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f64,
             match element {
                 Element::DenseNode(node) => {
                     if node_set.contains(&node.id) {    // add coordinates to loop vector which will be returned
-                        LinkedList::from([(node.id, (node.lon(), node.lat()))])
+                        LinkedList::from([(node.id, (node.lon() as f64, node.lat() as f64))])
                     } else {
                         LinkedList::new()
                     }

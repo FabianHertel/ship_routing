@@ -12,7 +12,7 @@ use crate::test_polygon_test::static_polygon_tests;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    const COMMANDS: &str = "import/generate/run";
+    const COMMANDS: &str = "import/transform/generate/test";
 
     let command = std::env::args_os()
         .nth(1)
@@ -23,10 +23,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let arg = std::env::args_os()
                 .nth(2)
                 .ok_or("need a *.osm.pbf file as argument")?;
+            let export_prefix = match std::env::args_os().nth(3) {
+                Some(osstring) => osstring.to_str().unwrap().to_string(),
+                None => "complete".to_string()
+            };
     
             let now = SystemTime::now();
             println!("Importing pbf file...");
-            import_pbf(&arg)?;
+            import_pbf(&arg, &export_prefix)?;
             println!("Import completed, overall time: {}sek", now.elapsed()?.as_secs());
         }
         Some("transform") => {      // for developement; probably removed in production
@@ -48,9 +52,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("2/2: Finished in {} sek", now.elapsed()?.as_secs());
         }
         Some("generate") => {
-            let filename_out = std::env::args_os().nth(2)
-                .ok_or("specify a file name for output graph")?;
-            generate_map(filename_out.to_str().unwrap())?;
+            let filename_out = match std::env::args_os().nth(2) {
+                Some(osstring) => osstring.to_str().unwrap().to_string(),
+                None => "graph.fmi".to_string()
+            };
+            let import_prefix = match std::env::args_os().nth(3) {
+                Some(osstring) => osstring.to_str().unwrap().to_string(),
+                None => "complete".to_string()
+            };
+            generate_map(&filename_out, &import_prefix)?;
         }
         Some("test") => {
             static_polygon_tests();

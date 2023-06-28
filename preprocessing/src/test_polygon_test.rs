@@ -8,7 +8,7 @@ pub fn static_polygon_tests() {
 
     println!("1/?: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
-    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("complete");
+    let coastlines: Vec<Vec<Vec<f64>>> = read_geojsons("reduced");
     println!("1/?: Finished in {} sek", now.elapsed().unwrap().as_secs());
 
 
@@ -57,7 +57,7 @@ pub fn static_polygon_tests() {
         if norm <= 1.0 {
             let now = SystemTime::now();
             if !point_in_polygon_test(lon, lat, &island_grid) {
-                water_coordinates.push([(lon*100000.0).round()/100000.0, (lat*100000.0).round()/100000.0]);
+                water_coordinates.push([lon as f64, lat as f64]);
             }
             let elapsed_time = now.elapsed().unwrap().as_millis();
             if elapsed_time > 2 {slow_points.push((elapsed_time, lon, lat, counter));}
