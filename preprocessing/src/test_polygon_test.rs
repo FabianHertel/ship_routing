@@ -49,7 +49,8 @@ pub fn static_polygon_tests(import_prefix: &str) {
     let mut norm: f32;
     let mut counter = 0;
     let mut slow_points: Vec<(u128, f32, f32, i32)> = vec![];
-    let mut water_coordinates: Vec<[f32; 2]> = vec![];
+    let mut points_in_water: Vec<[f32; 2]> = vec![];
+    let mut points_on_land: Vec<[f32; 2]> = vec![];
 
     while counter < 1000 {
         (lon, lat, norm) = random_point_on_sphere(&mut rng);
@@ -57,7 +58,9 @@ pub fn static_polygon_tests(import_prefix: &str) {
         if norm <= 1.0 {
             let now = SystemTime::now();
             if !point_in_polygon_test(lon, lat, &island_grid) {
-                water_coordinates.push([lon as f32, lat as f32]);
+                points_in_water.push([lon, lat]);
+            } else {
+                points_on_land.push([lon, lat])
             }
             let elapsed_time = now.elapsed().unwrap().as_millis();
             if elapsed_time > 2 {slow_points.push((elapsed_time, lon, lat, counter));}
@@ -65,7 +68,8 @@ pub fn static_polygon_tests(import_prefix: &str) {
         }
     }
     println!("Finished 1000 points in {} millis", now.elapsed().unwrap().as_millis());
-    println!("{:?}", water_coordinates);
+    // println!("In water: {:?}", points_in_water);
+    // println!("On land: {:?}", points_on_land);
 
     for (elapsed_time, lon, lat, counter) in &slow_points {
         println!("{} millis for {},{} with index {}", elapsed_time, lon, lat, counter);
