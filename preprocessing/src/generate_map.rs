@@ -4,7 +4,7 @@ use rand::Rng;
 
 use graph_lib::{Coordinates, Node, Edge};
 
-use crate::island::{Island, min_distance, GRID_DIVISIONS};
+use crate::island::{Island, min_distance, GRID_DIVISIONS, grid_cell_of_coordinate, GridCell};
 
 pub const MOST_SOUTHERN_LAT_IN_SEA: f32 = -78.02;
 
@@ -17,8 +17,8 @@ pub fn generate_map(filename_out: &str, import_prefix: &str) -> Result<(), Box<d
 
     println!("2/?: Precalculations for islands/continents ...");
     let now = SystemTime::now();
+    let mut island_grid: Vec<Vec<GridCell>> = GRID_DIVISIONS.iter().map(|e| vec![GridCell::WATER; *e]).collect();
     let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
-    let mut island_grid: Vec<Vec<Vec<&Island>>> = GRID_DIVISIONS.iter().map(|e| vec![vec![]; *e]).collect();
     islands.iter().for_each(|island| island.add_to_grid(&mut island_grid));
     println!("2/?: Finished precalculations in {} sek", now.elapsed().unwrap().as_secs());
 
@@ -86,64 +86,73 @@ pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f32>>> {
  * If it is even, we are in the sea. If odd, we are on land.
  * Note: Antartica avoids -180 to 180 edge, so coastline goes to the southpole and around it.
  */
-pub fn point_in_polygon_test(mut lon: f32, mut lat: f32, island_grid: &Vec<Vec<Vec<&Island>>>) -> bool {
+pub fn point_on_land_test(lon: f32, lat: f32, island_grid: &Vec<Vec<GridCell>>) -> bool {
     // no point in water is more south than -78.02
     if lat < MOST_SOUTHERN_LAT_IN_SEA {return true}
 
-    // in case lon or lat is exactly on the edge we can get an index out of bounds
-    if lon == -180.0 {lon -= 0.0001};
-    if lat == -90.0 {lat -= 0.0001};
+    let [grid_row, cell_in_row] = grid_cell_of_coordinate(lon, lat);
 
-    // northpole is row 0, southpole is last row
-    let grid_row = (-(lat - 90.0) * GRID_DIVISIONS.len() as f32 / 180.0) as usize;
-    let cell_in_row = (-(lon - 180.0) * GRID_DIVISIONS[grid_row] as f32 / 360.0) as usize;
     // println!("(lon, lat): {},{} makes {},{}", lon, lat, grid_row, cell_in_row);
-    for island in &island_grid[grid_row][cell_in_row] {
-        // println!("Island in cell: {}", island);
-        let in_bounding_box = lon > island.get_bounding_box()[0][0]
-            && lon < island.get_bounding_box()[0][1]
-            && lat > island.get_bounding_box()[1][0]
-            && lat < island.get_bounding_box()[1][1];
-        if in_bounding_box {
-            let in_range_of_ref_points =
-                min_distance(&Coordinates(lon, lat), &island.get_reference_points()).0 < *island.get_max_dist_from_ref();
-            if in_range_of_ref_points {
-                // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.get_max_dist_from_ref(), &island.get_reference_points()[0].distance_to(&Coordinates(lon, lat)), island.get_coastline().len());
-                let mut in_water = false;
-                let polygon = &island.get_coastline();
-                if island.get_lon_distribution().len() > 0 {
-                    let index_in_lon_distr = ((lon - island.get_bounding_box()[0][0])
-                        / island.get_lon_distribution_distance())
-                        .floor() as usize;
-                    let mut last_point_i: usize = 0;
-                    // println!("Checking {} edges", &island.get_lon_distribution()[index_in_lon_distr].len());
-                    for point_i in &island.get_lon_distribution()[index_in_lon_distr] {
-                        if *point_i != last_point_i + 1 && *point_i > 0 {
-                            // check edge before only if not already checked
-                            let (start, end) = (&polygon[point_i - 1], &polygon[*point_i]);
-                            if line_cross_check(start, end, lon, lat) {in_water = !in_water}
-                        }
-                        // check edge after always if point is not the last one
-                        if *point_i < island.get_coastline().len() - 1 {
-                            let (start, end) = (&polygon[*point_i], &polygon[point_i + 1]);
-                            if line_cross_check(start, end, lon, lat) {in_water = !in_water}
-                        }
-                        last_point_i = *point_i;
-                    }
-                } else {
-                    // println!("No lon distibution: Checking {} edges", &island.get_coastline().len());
-                    for j in 1..polygon.len() {
-                        // ignore first point in polygon, because first and last will be the same
-                        let (start, end) = (&polygon[j - 1], &polygon[j]);
-                        if line_cross_check(start, end, lon, lat) {in_water = !in_water}
-                    }
-                }
-                if in_water {
+    match island_grid[grid_row][cell_in_row] {
+        GridCell::WATER => false,
+        GridCell::LAND(_) => true,
+        GridCell::ISLANDS(ref islands) => {
+            for island in islands {
+                if point_in_polygon_test(lon, lat, island) {
                     return true;
                 }
-            } else {
-                //println!("Ref points saved checking {} edges of this continent: {}, {}!!!", island.coastline.len(), island.reference_points[0].0, island.reference_points[0].1);
             }
+            return false;
+        },
+    }
+}
+
+#[inline]
+pub fn point_in_polygon_test(lon: f32, lat: f32, island: &Island) -> bool {
+    // println!("Island in cell: {}", island);
+    let in_bounding_box = lon > island.get_bounding_box()[0][0]
+    && lon < island.get_bounding_box()[0][1]
+    && lat > island.get_bounding_box()[1][0]
+    && lat < island.get_bounding_box()[1][1];
+    if in_bounding_box {
+        let in_range_of_ref_points =
+            min_distance(&Coordinates(lon, lat), &island.get_reference_points()).0 < *island.get_max_dist_from_ref();
+        if in_range_of_ref_points {
+            // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.get_max_dist_from_ref(), &island.get_reference_points()[0].distance_to(&Coordinates(lon, lat)), island.get_coastline().len());
+            let mut in_water = false;
+            let polygon = &island.get_coastline();
+            if island.get_lon_distribution().len() > 0 {
+                let index_in_lon_distr = ((lon - island.get_bounding_box()[0][0])
+                    / island.get_lon_distribution_distance())
+                    .floor() as usize;
+                let mut last_point_i: usize = 0;
+                // println!("Checking {} edges", &island.get_lon_distribution()[index_in_lon_distr].len());
+                for point_i in &island.get_lon_distribution()[index_in_lon_distr] {
+                    if *point_i != last_point_i + 1 && *point_i > 0 {
+                        // check edge before only if not already checked
+                        let (start, end) = (&polygon[point_i - 1], &polygon[*point_i]);
+                        if line_cross_check(start, end, lon, lat) {in_water = !in_water}
+                    }
+                    // check edge after always if point is not the last one
+                    if *point_i < island.get_coastline().len() - 1 {
+                        let (start, end) = (&polygon[*point_i], &polygon[point_i + 1]);
+                        if line_cross_check(start, end, lon, lat) {in_water = !in_water}
+                    }
+                    last_point_i = *point_i;
+                }
+            } else {
+                // println!("No lon distibution: Checking {} edges", &island.get_coastline().len());
+                for j in 1..polygon.len() {
+                    // ignore first point in polygon, because first and last will be the same
+                    let (start, end) = (&polygon[j - 1], &polygon[j]);
+                    if line_cross_check(start, end, lon, lat) {in_water = !in_water}
+                }
+            }
+            if in_water {
+                return true;
+            }
+        } else {
+            //println!("Ref points saved checking {} edges of this continent: {}, {}!!!", island.coastline.len(), island.reference_points[0].0, island.reference_points[0].1);
         }
     }
     return false;
@@ -173,7 +182,7 @@ fn line_cross_check(start: &Coordinates, end: &Coordinates, lon: f32, lat: f32) 
     return false;
 }
 
-fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_points: u32, filename_out: &str) -> () {
+fn generate_graph_on_sphere(island_grid: &Vec<Vec<GridCell>>, number_of_points: u32, filename_out: &str) -> () {
     let mut rng = rand::thread_rng();
     let mut new_node: Node;
     let mut points: Vec<Node> = Vec::new();
@@ -192,7 +201,7 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<Vec<&Island>>>, number_of_poin
         (lon, lat, norm) = random_point_on_sphere(&mut rng);
 
         if norm <= 1.0 {
-            if !point_in_polygon_test(lon, lat, island_grid) {
+            if !point_on_land_test(lon, lat, island_grid) {
                 new_node = Node {
                     id: 0,
                     lat: lat,

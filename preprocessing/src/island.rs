@@ -1,12 +1,40 @@
+use std::collections::HashSet;
+
 use graph_lib::Coordinates;
 use lombok::Getter;
 
-use crate::generate_map::MOST_SOUTHERN_LAT_IN_SEA;
+use crate::generate_map::{MOST_SOUTHERN_LAT_IN_SEA, point_in_polygon_test};
 
 // grid order: from north to south, from east to west
 // so always from high coordinate values to small
 pub const GRID_DIVISIONS: [usize; 36] = [3,9,16,22,28,33,39,44,49,53,57,61,64,67,69,70,71,72,72,71,70,69,67,64,61,57,53,49,44,39,33,28,22,16,9,3];
 const GRID_DISTANCE: f32 = 180.0 / GRID_DIVISIONS.len() as f32;
+
+#[derive(Clone)]
+pub enum GridCell<'a> {
+    WATER,
+    LAND(&'a Island),
+    ISLANDS(Vec<&'a Island>),
+}
+
+impl std::fmt::Debug for GridCell<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GridCell::LAND(_) => write!(f, "LAND"),
+            GridCell::WATER => write!(f, "WATER"),
+            GridCell::ISLANDS(islands) => write!(f, "ISLANDS({})", islands.len()),
+        }
+    }
+}
+
+#[inline]
+pub fn grid_cell_of_coordinate(lon: f32, lat: f32) -> [usize; 2] {
+    // northpole is row 0, southpole is last row
+    // not using -90 and -180 to avoid index out of bounds in our grid
+    let grid_row = (-(lat - 89.999) * GRID_DIVISIONS.len() as f32 / 180.0) as usize;
+    let cell_in_row = (-(lon - 179.999) * GRID_DIVISIONS[grid_row] as f32 / 360.0) as usize;
+    return [grid_row, cell_in_row];
+}
 
 /**
  * bounding box: [[min_lon, max_lon], [min_lat, max_lat]]
@@ -19,6 +47,7 @@ pub struct Island {
     max_dist_from_ref: f32,
     lon_distribution: Vec<Vec<usize>>,
     lon_distribution_distance: f32,
+    grid_cells_touched: Vec<HashSet<usize>>
 }
 
 impl std::fmt::Display for Island {
@@ -39,6 +68,7 @@ impl Island {
         let mut bounding_box = [[180.0, -180.0], [90.0, -90.0]];
         let mut coastline_formatted: Vec<Coordinates> = vec![];
         let mut max_lon_jump = 0.0;
+        let mut grid_cells_touched: Vec<HashSet<usize>> = vec![HashSet::new(); GRID_DIVISIONS.len()];
         for i in 0..coastline.len() {
             if coastline[i][0] < bounding_box[0][0] {
                 bounding_box[0][0] = coastline[i][0];
@@ -61,6 +91,10 @@ impl Island {
                 max_lon_jump = (coastline[i + 1][0] - coastline[i][0]).abs();
             }
             coastline_formatted.push(Coordinates::from_vec(&coastline[i]));
+
+            let grid_cell = grid_cell_of_coordinate(coastline[i][0], coastline[i][1]);
+            // println!("{:?} for point {},{}", grid_cell, coastline[i][0], coastline[i][1]);
+            grid_cells_touched[grid_cell[0]].insert(grid_cell[1]);
         }
         const MIN_LON_DISTR_DIFF: f32 = 0.2;
         let lon_distribution_distance = max(max_lon_jump, MIN_LON_DISTR_DIFF);
@@ -137,6 +171,8 @@ impl Island {
             );
         }
 
+        
+
         Island {
             coastline: coastline_formatted,
             bounding_box,
@@ -144,20 +180,36 @@ impl Island {
             max_dist_from_ref,
             lon_distribution,
             lon_distribution_distance,
+            grid_cells_touched,
         }
     }
 
-    pub fn add_to_grid<'a>(&'a self, island_grid: &mut Vec<Vec<Vec<&'a Island>>>) {
-        // fill grid
-        for (lat_index, lat_row_count) in GRID_DIVISIONS.iter().enumerate() {
-            // check if boundingbox inside latitude row
-            // lower bounding box edge under upper line of lat row          && upper bounding box edge over lower line of lat_row
-            if self.bounding_box[1][0] < 90.0 - lat_index as f32 * GRID_DISTANCE && self.bounding_box[1][1] > 90.0 - (lat_index+1) as f32 * GRID_DISTANCE {
-                for cell_in_row in 0..*lat_row_count {
-                    let lon_dist = 360.0 / *lat_row_count as f32;
-                    // west box edge western of eastern border of grid                 && east box edge easter of western border of grid
-                    if self.bounding_box[0][0] < 180.0 - cell_in_row as f32 * lon_dist && self.bounding_box[0][1] > 180.0 - (cell_in_row+1) as f32 * lon_dist {
-                        island_grid[lat_index][cell_in_row].push(&self);
+    pub fn add_to_grid<'a>(&'a self, island_grid: &mut Vec<Vec<GridCell<'a>>>) {
+        for (row_index, grid_row) in self.grid_cells_touched.iter().enumerate() {
+            if grid_row.len() > 0 {
+                let (mut max, mut min) = (0 as usize, usize::MAX);
+                for cell_in_row in grid_row {
+                    // add itself to all touched grid cells
+                    if *cell_in_row >= island_grid[row_index].len() {
+                        println!("{:?} for row {}, row: {:?}, island: {:?}", island_grid, row_index, grid_row, self);
+                    }
+                    match island_grid[row_index][*cell_in_row] {
+                        GridCell::WATER => island_grid[row_index][*cell_in_row] = GridCell::ISLANDS(vec![&self]),
+                        GridCell::LAND(_) => (), // occurs only for polygons in polygons, so islands in the caspian sea
+                        GridCell::ISLANDS(ref mut islands) => islands.push(&self)
+                    }
+                    max = usize::max(max, *cell_in_row);
+                    min = usize::min(min, *cell_in_row);
+                }
+                
+                // check if cells are completely in polygon...
+                for cell in min+1..max {
+                    if !grid_row.contains(&cell) {
+                        let lon_center = 180.0 - cell as f32 * 360.0 / GRID_DIVISIONS[row_index] as f32;
+                        let lat_center = 90.0 - row_index as f32 * GRID_DISTANCE;
+                        if point_in_polygon_test(lon_center, lat_center, &self) {
+                            island_grid[row_index][cell] = GridCell::LAND(&self);
+                        }
                     }
                 }
             }
