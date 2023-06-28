@@ -43,8 +43,7 @@ pub fn grid_cell_of_coordinate(lon: f32, lat: f32) -> [usize; 2] {
 pub struct Island {
     coastline: Vec<Coordinates>,
     bounding_box: [[f32; 2]; 2],
-    reference_points: Vec<Coordinates>,
-    max_dist_from_ref: f32,
+    center: Coordinates,
     lon_distribution: Vec<Vec<usize>>,
     lon_distribution_distance: f32,
     grid_cells_touched: Vec<HashSet<usize>>
@@ -52,19 +51,18 @@ pub struct Island {
 
 impl std::fmt::Display for Island {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Islandcenter: ({})", self.reference_points[0])
+        write!(f, "Islandcenter: ({})", self.center)
     }
 }
 
 impl std::fmt::Debug for Island {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Islandcenter: ({})", self.reference_points[0])
+        write!(f, "Islandcenter: ({})", self.center)
     }
 }
 
 impl Island {
     pub fn new(coastline: Vec<Vec<f32>>) -> Island {
-        let mut cog = Coordinates(0.0, 0.0);
         let mut bounding_box = [[180.0, -180.0], [90.0, -90.0]];
         let mut coastline_formatted: Vec<Coordinates> = vec![];
         let mut max_lon_jump = 0.0;
@@ -82,7 +80,6 @@ impl Island {
             if coastline[i][1] > bounding_box[1][1] {
                 bounding_box[1][1] = coastline[i][1];
             }
-            (cog.0, cog.1) = (cog.0 + coastline[i][0], cog.1 + coastline[i][1]);
             if i < coastline.len() - 1
                 && (coastline[i + 1][0] - coastline[i][0]).abs() > max_lon_jump
                 && coastline[i][1] > MOST_SOUTHERN_LAT_IN_SEA
@@ -98,8 +95,7 @@ impl Island {
         }
         const MIN_LON_DISTR_DIFF: f32 = 0.2;
         let lon_distribution_distance = max(max_lon_jump, MIN_LON_DISTR_DIFF);
-        let n = coastline_formatted.len().to_owned() as f32;
-        (cog.0, cog.1) = (cog.0 / n, cog.1 / n);
+        let center = Coordinates((bounding_box[0][1] - bounding_box[0][0]) / 2.0, (bounding_box[1][1] - bounding_box[1][0]) / 2.0);
 
 
         let mut lon_distribution: Vec<Vec<usize>> = vec![];
@@ -115,17 +111,7 @@ impl Island {
             }
         }
 
-        let mut reference_points = vec![cog.clone()];
-        let mut most_far_away_point = &Coordinates(0.0, 0.0);
-        let mut max_dist_from_ref = 0.0;
-        let mut distance_sum = 0.0;
         for i in 0..coastline_formatted.len() {
-            let distance = coastline_formatted[i].distance_to(&cog);
-            distance_sum += distance;
-            if distance > max_dist_from_ref {
-                most_far_away_point = &coastline_formatted[i];
-                max_dist_from_ref = distance;
-            }
             if coastline.len() > MIN_SIZE_FOR_LON_DISTR
                 && (bounding_box[0][1] - bounding_box[0][0]) > 10.0 * lon_distribution_distance
             {
@@ -136,48 +122,10 @@ impl Island {
             }
         }
 
-        // calculate more reference points (additional to cog) to get shorter max distances
-        let mut refpoint_most_far_away = cog;
-        while max_dist_from_ref > 1000.0
-            && (distance_sum / coastline_formatted.len() as f32) < 0.5 * max_dist_from_ref
-        {
-            let new_refpoint = Coordinates(
-                (refpoint_most_far_away.0 + most_far_away_point.0) / 2.0,
-                (refpoint_most_far_away.1 + most_far_away_point.1) / 2.0,
-            );
-            print!(
-                "Dist: {}, with average: {} -> Generated {}, {}",
-                max_dist_from_ref,
-                (distance_sum / coastline_formatted.len() as f32),
-                new_refpoint.0,
-                new_refpoint.1
-            );
-            reference_points.push(new_refpoint);
-            distance_sum = 0.0;
-            max_dist_from_ref = 0.0;
-            for point in &coastline_formatted {
-                let (distance, refpoint) = min_distance(point, &reference_points);
-                distance_sum += distance;
-                if distance > max_dist_from_ref {
-                    most_far_away_point = point;
-                    max_dist_from_ref = distance;
-                    refpoint_most_far_away = refpoint;
-                }
-            }
-            println!(
-                "; new dist: {}, new average: {}",
-                max_dist_from_ref,
-                (distance_sum / coastline_formatted.len() as f32)
-            );
-        }
-
-        
-
         Island {
             coastline: coastline_formatted,
             bounding_box,
-            reference_points,
-            max_dist_from_ref,
+            center,
             lon_distribution,
             lon_distribution_distance,
             grid_cells_touched,
@@ -223,18 +171,4 @@ fn max(v1: f32, v2: f32) -> f32 {
     } else {
         return v2;
     }
-}
-
-
-pub fn min_distance(x: &Coordinates, reference_points: &Vec<Coordinates>) -> (f32, Coordinates) {
-    let mut min_distance = 40000.0;
-    let mut closest_refpoint = &reference_points[0];
-    reference_points.iter().for_each(|reference_point| {
-        let distance = x.distance_to(reference_point);
-        if distance < min_distance {
-            min_distance = distance;
-            closest_refpoint = reference_point;
-        }
-    });
-    return (min_distance, closest_refpoint.clone());
 }
