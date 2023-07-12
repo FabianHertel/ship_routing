@@ -1,5 +1,5 @@
-use std::{time::SystemTime, fs::{self, File}, error::Error, io::{Write}};
-use rayon::{prelude::*};
+use std::{time::SystemTime, fs::{self, File}, error::Error, io::{Write, stdout}};
+use rayon::prelude::*;
 use rand::Rng;
 
 use graph_lib::{Coordinates, Node, Edge};
@@ -9,21 +9,35 @@ use crate::island::{Island, GRID_DIVISIONS, grid_cell_of_coordinate, GridCell};
 pub const MOST_SOUTHERN_LAT_IN_SEA: f32 = -78.02;
 
 pub fn generate_map(filename_out: &str, import_prefix: &str) -> Result<(), Box<dyn Error>> {
+    const NUMBER_OF_NODES: u32 = 1000000;
 
-    println!("1/?: Read GeoJSONs parallel ...");
+    println!("1/5: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
     let coastlines: Vec<Vec<Vec<f32>>> = read_geojsons(import_prefix);
-    println!("1/?: Finished in {} sek", now.elapsed().unwrap().as_secs());
+    println!("1/5: Finished: Imported {} coastlines in {} sek", coastlines.len(), now.elapsed().unwrap().as_secs());
 
-    println!("2/?: Precalculations for islands/continents ...");
+    println!("2/5: Precalculations for islands/continents ...");
     let now = SystemTime::now();
     let mut island_grid: Vec<Vec<GridCell>> = GRID_DIVISIONS.iter().map(|e| vec![GridCell::WATER; *e]).collect();
     let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
     islands.iter().for_each(|island| island.add_to_grid(&mut island_grid));
-    println!("2/?: Finished precalculations in {} sek", now.elapsed().unwrap().as_secs());
+    let n_grid_cells = GRID_DIVISIONS.into_iter().reduce(|e, f| e + f).unwrap();
+    println!("2/5: Finished precalculations of islands and put into {} grid cells in {} sek", n_grid_cells, now.elapsed().unwrap().as_secs());
 
-    generate_graph_on_sphere(&island_grid, 1000000, filename_out);
+    println!("3/5: Generating {} random points in ocean ...", NUMBER_OF_NODES);
+    let now = SystemTime::now();
+    let graph_grid = generate_random_points_in_ocean(&island_grid, NUMBER_OF_NODES);
+    println!("3/5 Finished generating points in {} min", now.elapsed().unwrap().as_secs() as f32 / 60.0);
 
+    println!("4/5: Connecting graph ...");
+    let now = SystemTime::now();
+    let (mut nodes, mut edges) = generate_graph(graph_grid);
+    println!("4/5 Finished graph creating {} edges in {} min", edges.len(), now.elapsed().unwrap().as_secs() as f32 / 60.0);
+
+    println!("5/5: Writing graph into {} ...", filename_out);
+    let now = SystemTime::now();
+    print_fmi_graph(&mut nodes, &mut edges, filename_out);
+    println!("5/5 Finished file write {} sek", now.elapsed().unwrap().as_secs());
     Ok(())
 }
 
@@ -176,21 +190,15 @@ fn line_cross_check(start: &Coordinates, end: &Coordinates, lon: f32, lat: f32) 
     return false;
 }
 
-fn generate_graph_on_sphere(island_grid: &Vec<Vec<GridCell>>, number_of_points: u32, filename_out: &str) -> () {
-    let mut rng = rand::thread_rng();
-    let mut new_node: Node;
-    let mut points: Vec<Node> = Vec::new();
-    let mut edges: Vec<Edge> = Vec::new();
+fn generate_random_points_in_ocean(island_grid: &Vec<Vec<GridCell>>, number_of_points: u32) -> Vec<Vec<Vec<Node>>> {
+    let mut grid: Vec<Vec<Vec<Node>>> = vec![vec![Vec::new(); 180]; 360];
     let mut lat: f32;
     let mut lon: f32;
     let mut norm: f32;
-    let mut id = 0;
+    let mut new_node: Node;
+    let mut rng = rand::thread_rng();
     let mut counter = 0;
-    let mut grid: Vec<Vec<Vec<Node>>> = vec![vec![Vec::new(); 180]; 360];
-    let mut data = String::new();
-    let max_distance = 30.0;
 
-    let now = SystemTime::now();
     while counter < number_of_points {
         (lon, lat, norm) = random_point_on_sphere(&mut rng);
 
@@ -205,20 +213,31 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<GridCell>>, number_of_points: 
                 grid[(lon.round() + 180.0 - 1.0) as usize][(lat.round() + 90.0 - 1.0) as usize]
                     .push(new_node);
                 counter = counter + 1;
-                if counter % 100000 == 0 {println!("Generated {} points", counter)}
+                if counter % 1000 == 0 {
+                    print!("\rGenerated {}/{} points", counter, number_of_points);
+                    stdout().flush().unwrap();
+                }
                 //print!("[{},{}],", lon, lat);
             }
         }
     }
-    println!("Finished generating points in {} sek", now.elapsed().unwrap().as_secs());
+    println!("");
+    
+    return grid;
+}
 
-    let now = SystemTime::now();
+fn generate_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) {
+    let mut points: Vec<Node> = Vec::new();
+    let mut edges: Vec<Edge> = Vec::new();
+    let mut id = 0;
+    let max_distance = 30.0;
+
     // set ids
     for i in 0..360 {
         for j in 0..180 {
-            for k in 0..grid[i][j].len() {
-                grid[i][j][k].id = id;
-                points.push(grid[i][j][k].clone());
+            for k in 0..graph_grid[i][j].len() {
+                graph_grid[i][j][k].id = id;
+                points.push(graph_grid[i][j][k].clone());
                 id = id + 1;
             }
         }
@@ -227,7 +246,7 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<GridCell>>, number_of_points: 
     print!("Connected lat colomns: ");
     for i in 0..360 {
         for j in 0..180 {
-            if grid[i][j].len() >= 1 {
+            if graph_grid[i][j].len() >= 1 {
                 let mut closest_ne = 0;
                 let mut distance_ne = 40000.0;
                 let mut closest_se = 0;
@@ -235,17 +254,17 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<GridCell>>, number_of_points: 
                 let mut temp_nodes: Vec<Node> = Vec::new();
                 let mut distance_to_node;
 
-                temp_nodes.extend(&grid[i][j]);
+                temp_nodes.extend(&graph_grid[i][j]);
                 temp_nodes.extend(
-                    &grid[(i + 1).rem_euclid(360)][((j as i32) - 1).rem_euclid(180) as usize],
+                    &graph_grid[(i + 1).rem_euclid(360)][((j as i32) - 1).rem_euclid(180) as usize],
                 );
-                temp_nodes.extend(&grid[(i + 1).rem_euclid(360)][(j).rem_euclid(180)]);
-                temp_nodes.extend(&grid[(i + 1).rem_euclid(360)][(j + 1).rem_euclid(180)]);
+                temp_nodes.extend(&graph_grid[(i + 1).rem_euclid(360)][(j).rem_euclid(180)]);
+                temp_nodes.extend(&graph_grid[(i + 1).rem_euclid(360)][(j + 1).rem_euclid(180)]);
                 temp_nodes
-                    .extend(&grid[(i).rem_euclid(360)][((j as i32) - 1).rem_euclid(180) as usize]);
-                temp_nodes.extend(&grid[(i).rem_euclid(360)][(j + 1).rem_euclid(180)]);
+                    .extend(&graph_grid[(i).rem_euclid(360)][((j as i32) - 1).rem_euclid(180) as usize]);
+                temp_nodes.extend(&graph_grid[(i).rem_euclid(360)][(j + 1).rem_euclid(180)]);
 
-                for k in &grid[i][j] {
+                for k in &graph_grid[i][j] {
                     for l in &temp_nodes {
                         if k.id != l.id {
                             distance_to_node = k.distance_to(&Coordinates(l.lon, l.lat));
@@ -299,19 +318,21 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<GridCell>>, number_of_points: 
                 }
             }
         }
-        print!("{}-{},", i, i+1)
+        // print!("{}-{},", i, i+1)
     }
-    println!("");
-    println!("Finished graph connecting in {} sek", now.elapsed().unwrap().as_secs());
+    // println!("");
+    return (points, edges);
+}
 
-    let now = SystemTime::now();
+fn print_fmi_graph(points: &mut Vec<Node>, edges: &mut Vec<Edge>, filename_out: &str) {
+    let mut data_string = String::new();
     edges.sort_by(|a, b| a.src.cmp(&b.src));
 
-    data = data + &points.len().to_string() + "\n";
-    data = data + &edges.len().to_string() + "\n";
+    data_string = data_string + &points.len().to_string() + "\n";
+    data_string = data_string + &edges.len().to_string() + "\n";
 
-    for node in &points {
-        data = data
+    for node in points {
+        data_string = data_string
             + &node.id.to_string()
             + " "
             + &node.lat.to_string()
@@ -319,8 +340,8 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<GridCell>>, number_of_points: 
             + &node.lon.to_string()
             + "\n";
     }
-    for edge in &edges {
-        data = data
+    for edge in edges {
+        data_string = data_string
             + &edge.src.to_string()
             + " "
             + &edge.tgt.to_string()
@@ -330,8 +351,7 @@ fn generate_graph_on_sphere(island_grid: &Vec<Vec<GridCell>>, number_of_points: 
     }
 
     let mut f = File::create("data/".to_owned() + filename_out).expect("Unable to create file");
-    f.write_all(data.as_bytes()).expect("unable to write file");
-    println!("Finished file write {} sek", now.elapsed().unwrap().as_secs());
+    f.write_all(data_string.as_bytes()).expect("unable to write file");
 
 }
 
