@@ -1,12 +1,12 @@
 use osmpbf::{Element, ElementReader};
-use std::{ffi::OsString, collections::{HashSet, HashMap, LinkedList}, time::SystemTime, error::Error};
+use std::{collections::{HashSet, HashMap, LinkedList}, time::SystemTime, error::Error};
 use std::fs;
 use rayon::prelude::*;
 
 
 /* filters ways for tag coastline and then searches for coordinates of referenced nodes
  */
-pub fn import_pbf(path: &OsString, prefix: &str) -> Result<(), Box<dyn Error>> {
+pub fn import_pbf(path: &str, prefix: &str) -> Result<(), Box<dyn Error>> {
     println!("1/4: Read and filter OSM ways with tag 'coastline'...");
     let now = SystemTime::now();
     let waypoint_refs: Vec<Vec<i64>> = read_coastline(path);     //filter ways
@@ -83,7 +83,7 @@ fn reduces_coastlines(mut coastlines: Vec<Vec<Vec<f32>>>) -> Vec<Vec<Vec<f32>>> 
 /* reads and filters the ways with tag coastline
 returns: list of references to nodes
  */
-fn read_coastline(path: &OsString) -> Vec<Vec<i64>> {
+fn read_coastline(path: &str) -> Vec<Vec<i64>> {
     let reader = ElementReader::from_path(path);
 
     match reader.unwrap().par_map_reduce(
@@ -116,7 +116,7 @@ fn read_coastline(path: &OsString) -> Vec<Vec<i64>> {
 
 /* read coordinates of point ids from ways as vectors
  */
-fn read_coordinates(path: &OsString, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f32, f32)> {
+fn read_coordinates(path: &str, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f32, f32)> {
     let reader = ElementReader::from_path(path);
     let node_set: HashSet<i64> = ways.to_owned().into_iter().reduce(|mut way_a, mut way_b| {
         way_a.append(&mut way_b);
