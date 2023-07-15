@@ -180,21 +180,22 @@ pub struct Edge {
 
 
 /// Result of a shortest path algorithm
-pub struct ShortestPath(f32, Vec<Node>);
+pub struct ShortestPathResult {
+    pub distance: f32,
+    pub path: Option<Vec<Node>>,
+    pub calculation_time: u128,
+    pub visited_nodes: u32
+}
 
-impl ShortestPath {
-    /// Creates a new node result with distance `dist` and path `path` to the associated node
-    pub fn new(dist: f32, path: Vec<Node>) -> Self {
-        Self(dist, path)
-    }
-
-    /// Returns the distance to the associated node
-    pub fn dist(&self) -> f32 {
-        self.0
-    }
-
-    /// Returns the path from the source node to the associated node
-    pub fn path(&self) -> &Vec<Node> {
-        &self.1
+impl Display for ShortestPathResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self.path.as_ref() {
+            Some(path) => 
+                write!(f, "result {} km over {} nodes by checking {} nodes in {} millis",
+                    self.distance, path.len(),
+                    self.visited_nodes, self.calculation_time),
+            None => write!(f, "NO RESULT by checking {} nodes in {} millis",
+                    self.visited_nodes, self.calculation_time)
+        }
     }
 }

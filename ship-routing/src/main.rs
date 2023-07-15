@@ -15,22 +15,27 @@ static mut GRAPH: Graph = Graph {
 #[tauri::command]
 fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
 
-    let src = Coordinates(coordinates[0][1], coordinates[0][0]);
-    let tgt = Coordinates(coordinates[1][1], coordinates[1][0]);
+    let src_coordinates = Coordinates(coordinates[0][1], coordinates[0][0]);
+    let tgt_coordinates = Coordinates(coordinates[1][1], coordinates[1][0]);
     let mut shortest_path = Vec::new();
+    
+    unsafe {
+        let (src_node, tgt_node) = (GRAPH.closest_node(&src_coordinates), GRAPH.closest_node(&tgt_coordinates));
+        // println!("Start dijkstra with start: {:?}, end: {:?}", src_node, tgt_node);
+    
+        let dijkstra_result = run_dijkstra(src_node, tgt_node, &GRAPH);
 
-    unsafe{
-        let path = run_dijkstra(src, tgt, &GRAPH).expect("Error Dijkstra");
-        
-        match path {
+        match &dijkstra_result.path {
             Some(current_path) => {
-                    for i in 0..current_path.path().len() {
-                        shortest_path.push([current_path.path()[i].lat, current_path.path()[i].lon]);
-                    }
+                for i in 0..current_path.len() {
+                    shortest_path.push([current_path[i].lat, current_path[i].lon]);
+                }
             }
-            None => println!("No Solution found")
+            None => ()
         }
+        println!("Finished dijkstra from {} to {} with {}", src_node.id, tgt_node.id, dijkstra_result);
     }
+
 
     shortest_path.into()
 }
