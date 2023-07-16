@@ -2,8 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod dijkstra;
 mod binary_minheap;
+mod test_routing;
 
 use graph_lib::{import_graph_from_file, Coordinates, Graph};
+use test_routing::test_samples;
 use crate::dijkstra::run_dijkstra;
 
 static mut GRAPH: Graph = Graph {
@@ -41,16 +43,26 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
 }
 
 fn main() {
-    tauri::Builder::default()
-    .setup(|_app| {
-        println!("Import Graph");
-        unsafe{
-            GRAPH = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph");
-        }
-        println!("Finished importing");
-        Ok(())
-    })
-    .invoke_handler(tauri::generate_handler![route])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    let command = std::env::args_os().nth(1);
+    println!("Import Graph");
+    unsafe { GRAPH = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph") };
+    println!("Finished importing");
+
+    match command {
+        Some(command) => {
+            if let Some("test") = command.to_str() {
+                test_samples(unsafe { &GRAPH })
+            } else {
+                println!("Command not known. Exit")
+            }
+        },
+        None => {
+            tauri::Builder::default()
+                .invoke_handler(tauri::generate_handler![route])
+                .run(tauri::generate_context!())
+                .expect("error while running tauri application");
+        },
+    }
+
+    
 }

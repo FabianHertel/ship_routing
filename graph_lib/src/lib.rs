@@ -105,8 +105,6 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
         offsets[i] = num_edges;
     }
     
-    println!("Finished importing");
-
     Ok(Graph {
         nodes : nodes,
         edges : edges,
