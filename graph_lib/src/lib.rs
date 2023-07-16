@@ -164,6 +164,9 @@ impl Node {
     pub fn distance_to(&self, y: &Coordinates) -> f32 {
         return distance_between(self.lon, self.lat, y.0, y.1);
     }
+    pub fn distance_to_node(&self, y: &Node) -> f32 {
+        return distance_between(self.lon, self.lat, y.lon, y.lat);
+    }
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]

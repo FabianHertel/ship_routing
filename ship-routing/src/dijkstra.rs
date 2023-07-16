@@ -9,17 +9,17 @@ pub fn run_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Graph) -> Shortest
     
     let mut dijkstra_dists = DijkstraDistances::init(graph.n_nodes(), src_node.id);
 
-    let mut pq = BinaryMinHeap::with_capacity(graph.n_nodes());
-    pq.push(src_node.id, &dijkstra_dists.dists);
+    let mut priority_queue = BinaryMinHeap::with_capacity(graph.n_nodes());
+    priority_queue.push(src_node.id, &dijkstra_dists.dists);
 
     let mut visited_nodes = 0;
 
-    while !pq.is_empty() {
-        let node_id = pq.pop(&dijkstra_dists.dists);
+    while !priority_queue.is_empty() {
+        let node_id = priority_queue.pop(&dijkstra_dists.dists);
         if node_id == tgt_node.id {
             break;
         } else {
-            process_edges(graph, node_id, &mut dijkstra_dists, &mut pq);
+            process_edges(graph, node_id, &mut dijkstra_dists, &mut priority_queue);
         }
         visited_nodes += 1;
     }
@@ -33,16 +33,16 @@ pub fn run_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Graph) -> Shortest
 }
 
 /// Process the outgoing edges of the node with id `node_id`
-fn process_edges(graph: &Graph, node_id: usize, result: &mut DijkstraDistances, pq: &mut BinaryMinHeap) {
-    let node_dist = result.dists[node_id];
+fn process_edges(graph: &Graph, node_id: usize, dijkstra_dists: &mut DijkstraDistances, pq: &mut BinaryMinHeap) {
+    let node_dist = dijkstra_dists.dists[node_id];
     for edge in graph.get_outgoing_edges(node_id) {
         let dist = node_dist + edge.dist;
 
-        if dist < result.dists[edge.tgt] {
-            result.dists[edge.tgt] = dist;
-            result.preds[edge.tgt] = node_id;
+        if dist < dijkstra_dists.dists[edge.tgt] {
+            dijkstra_dists.dists[edge.tgt] = dist;
+            dijkstra_dists.preds[edge.tgt] = node_id;
 
-            pq.insert_or_update(edge.tgt, &result.dists);
+            pq.insert_or_update(edge.tgt, &dijkstra_dists.dists);
         }
     }
 }
