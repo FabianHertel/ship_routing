@@ -1,6 +1,6 @@
 use graph_lib::{Graph, Coordinates};
 
-use crate::dijkstra::run_dijkstra;
+use crate::{dijkstra::run_dijkstra, a_star::run_a_star};
 
 struct Route {
     start: Coordinates,
@@ -61,6 +61,8 @@ fn run_routing(graph: &Graph, route: Route) {
     let tgt_node = graph.closest_node(&route.end);
     let dijkstra_result = run_dijkstra(src_node, tgt_node, graph);
     println!("Finished dijkstra from {} to {} with {}", src_node.id, tgt_node.id, dijkstra_result);
+    let a_star_result = run_a_star(src_node, tgt_node, graph);
+    println!("Finished A*       from {} to {} with {}", src_node.id, tgt_node.id, a_star_result);
     assert!((route.optimal_route_length - dijkstra_result.distance).abs() < 0.001);
     match dijkstra_result.path {
         Some(path) => assert_eq!(route.optimal_route_node_count, path.len()),
