@@ -1,8 +1,8 @@
-use std::{time::SystemTime};
+use std::time::SystemTime;
 
 use rand::{rngs::StdRng, SeedableRng};
 
-use crate::{generate_map::{read_geojsons, point_on_land_test, random_point_on_sphere}, island::{Island, GRID_DIVISIONS, GridCell}};
+use crate::{generate_graph::{read_geojsons, point_on_land_test, random_point_on_sphere}, island::{Island, GRID_DIVISIONS, GridCell}};
 
 pub fn static_polygon_tests(import_prefix: &str) {
 

@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use graph_lib::Coordinates;
 use lombok::Getter;
 
-use crate::generate_map::{MOST_SOUTHERN_LAT_IN_SEA, point_in_polygon_test};
+use crate::generate_graph::{MOST_SOUTHERN_LAT_IN_SEA, point_in_polygon_test};
 
 // grid order: from north to south, from east to west
 // so always from high coordinate values to small

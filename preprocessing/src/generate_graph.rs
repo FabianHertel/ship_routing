@@ -8,8 +8,8 @@ use crate::island::{Island, GRID_DIVISIONS, grid_cell_of_coordinate, GridCell};
 
 pub const MOST_SOUTHERN_LAT_IN_SEA: f32 = -78.02;
 
-pub fn generate_map(filename_out: &str, import_prefix: &str) -> Result<(), Box<dyn Error>> {
-    const NUMBER_OF_NODES: u32 = 1000000;
+pub fn generate_graph(filename_out: &str, import_prefix: &str) -> Result<(), Box<dyn Error>> {
+    const NUMBER_OF_NODES: u32 = 4000000;
 
     println!("1/5: Read GeoJSONs parallel ...");
     let now = SystemTime::now();
@@ -31,7 +31,7 @@ pub fn generate_map(filename_out: &str, import_prefix: &str) -> Result<(), Box<d
 
     println!("4/5: Connecting graph ...");
     let now = SystemTime::now();
-    let (mut nodes, mut edges) = generate_graph(graph_grid);
+    let (mut nodes, mut edges) = connect_graph(graph_grid);
     println!("4/5 Finished graph creating {} edges in {} min", edges.len(), now.elapsed().unwrap().as_secs() as f32 / 60.0);
 
     println!("5/5: Writing graph into {} ...", filename_out);
@@ -214,7 +214,7 @@ fn generate_random_points_in_ocean(island_grid: &Vec<Vec<GridCell>>, number_of_p
                     .push(new_node);
                 counter = counter + 1;
                 if counter % 1000 == 0 {
-                    print!("\rGenerated {}/{} points", counter, number_of_points);
+                    print!("\rGenerating... {}/{} points", counter, number_of_points);
                     stdout().flush().unwrap();
                 }
                 //print!("[{},{}],", lon, lat);
@@ -226,7 +226,7 @@ fn generate_random_points_in_ocean(island_grid: &Vec<Vec<GridCell>>, number_of_p
     return grid;
 }
 
-fn generate_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) {
+fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) {
     let mut points: Vec<Node> = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
     let mut id = 0;
@@ -319,6 +319,7 @@ fn generate_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>)
             }
         }
         // print!("{}-{},", i, i+1)
+        print!("\rConnecting... {}/360 latitudes", i);
     }
     // println!("");
     return (points, edges);

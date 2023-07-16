@@ -3,12 +3,12 @@ use std::time::SystemTime;
 use regex::Regex;
 
 mod import_pbf;
-mod generate_map;
+mod generate_graph;
 mod island;
 mod test_polygon_test;
 
 use crate::import_pbf::{import_pbf, print_geojson};
-use crate::generate_map::{generate_map, read_geojsons};
+use crate::generate_graph::{generate_graph, read_geojsons};
 use crate::test_polygon_test::static_polygon_tests;
 
 #[actix_web::main]
@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             
             let now = SystemTime::now();
             println!("Graph generation ...");
-            generate_map(&filename_out, &import_prefix)?;
+            generate_graph(&filename_out, &import_prefix)?;
             println!("Graph generation completed, overall time: {} sek", now.elapsed()?.as_secs());
         }
         Some("transform") => {      // for developement
