@@ -55,7 +55,7 @@ pub struct DijkstraDistances {
 }
 
 impl DijkstraDistances {
-    /// Creates a new `DijkstraResult` instance for given graph size with dist to src 0.0 and else infinity
+    /// Creates a new `DijkstraDistances` instance for given graph size with dist to src 0.0 and else infinity
     fn init(num_nodes: usize, src_id: usize) -> Self {
         let mut dists = vec![f32::MAX; num_nodes];
         dists[src_id] = 0.0;

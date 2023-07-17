@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod dijkstra;
 mod a_star;
+mod bidirectional_dijkstra;
 mod binary_minheap;
 mod test_routing;
 
