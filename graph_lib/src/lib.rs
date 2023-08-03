@@ -83,7 +83,7 @@ pub fn import_graph_from_file(path :&str) -> Result<Graph, std::io::Error>{
             edges.push(Edge { 
                 src: numbers[0] as usize,
                 tgt: numbers[1] as usize,
-                dist: numbers[2]
+                dist: numbers[2] as u32
              })
         }
         num_line += 1;
@@ -176,13 +176,13 @@ pub struct Edge {
     /// The id of the edge's target node
     pub tgt: usize,
     /// The edge's weight, i.e., the distance between its source and target
-    pub dist: f32,
+    pub dist: u32,
 }
 
 
 /// Result of a shortest path algorithm
 pub struct ShortestPathResult {
-    pub distance: f32,
+    pub distance: u32,
     pub path: Option<Vec<Node>>,
     pub calculation_time: u128,
     pub visited_nodes: u32
