@@ -27,6 +27,9 @@ impl Display for Coordinates {
     }
 }
 
+/**
+ * dicstance in m as f32
+ */
 pub fn distance_between(lon1:f32, lat1:f32, lon2:f32, lat2:f32) -> f32 {
     // from: http://www.movable-type.co.uk/scripts/latlong.html
     let φ1 = lat1 * PI/180.0; // φ, λ in radians
@@ -36,7 +39,7 @@ pub fn distance_between(lon1:f32, lat1:f32, lon2:f32, lat2:f32) -> f32 {
     const EARTH_RADIUS: f32 = 6371.0;
 
     let haversine = (dφ/2.0).sin().powi(2) + φ1.cos() * φ2.cos() * (dλ/2.0).sin().powi(2);
-    let distance = EARTH_RADIUS * 2.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
+    let distance = EARTH_RADIUS * 2000.0 * haversine.sqrt().atan2((1.0 - haversine).sqrt());
     return distance;
 }
 

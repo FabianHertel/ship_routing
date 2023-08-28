@@ -267,7 +267,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
                 for k in &graph_grid[i][j] {
                     for l in &temp_nodes {
                         if k.id != l.id {
-                            distance_to_node = (k.distance_to(&Coordinates(l.lon, l.lat)) * 1000.0).ceil() as u32;
+                            distance_to_node = k.distance_to(&Coordinates(l.lon, l.lat)).ceil() as u32;
                             if distance_to_node < max_distance {
                                 //NORTH EAST
                                 if k.lon < l.lon && k.lat < l.lat {
