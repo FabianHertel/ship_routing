@@ -50,15 +50,15 @@ fn process_edges(graph: &Graph, node_id: usize, dijkstra_dists: &mut DijkstraDis
 
 #[derive(Debug)]
 pub struct DijkstraDistances {
-    dists: Vec<f32>,
+    dists: Vec<u32>,
     preds: Vec<usize>,
 }
 
 impl DijkstraDistances {
     /// Creates a new `DijkstraDistances` instance for given graph size with dist to src 0.0 and else infinity
     fn init(num_nodes: usize, src_id: usize) -> Self {
-        let mut dists = vec![f32::MAX; num_nodes];
-        dists[src_id] = 0.0;
+        let mut dists = vec![u32::MAX; num_nodes];
+        dists[src_id] = 0;
         Self {
             dists,
             preds: vec![usize::MAX; num_nodes],
@@ -69,7 +69,7 @@ impl DijkstraDistances {
     /// This method assumes that the target can be reached from the source, otherwise it will
     /// output a path that solely consists of the target.
     pub fn build_path(&self, graph: &Graph, tgt_id: usize) -> Option<Vec<Node>> {
-        if self.dists[tgt_id] == f32::MAX {return None}
+        if self.dists[tgt_id] == u32::MAX {return None}
         let mut path = vec![];
         let mut curr_pred = tgt_id;
         // source node has no predecessor

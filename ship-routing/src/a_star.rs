@@ -7,7 +7,7 @@ pub fn run_a_star(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPa
 
     let now = SystemTime::now();
     
-    let mut heuristic_dists = HeuristicalDistances::init(graph.n_nodes(), src_node.id, src_node.distance_to_node(tgt_node));
+    let mut heuristic_dists = HeuristicalDistances::init(graph.n_nodes(), src_node.id, src_node.distance_to_node(tgt_node).floor() as u32);
 
     let mut priority_queue = BinaryMinHeap::with_capacity(graph.n_nodes());
     priority_queue.push(src_node.id, &heuristic_dists.g_plus_h);
@@ -36,8 +36,8 @@ pub fn run_a_star(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPa
 fn process_edges(graph: &Graph, node_id: usize, heuristic_dists: &mut HeuristicalDistances, pq: &mut BinaryMinHeap, tgt_node: &Node) {
     let central_node_dist = heuristic_dists.g_plus_h[node_id] - heuristic_dists.heuristic[node_id];
     for edge in graph.get_outgoing_edges(node_id) {
-        if heuristic_dists.heuristic[edge.tgt] == f32::MAX {
-            heuristic_dists.heuristic[edge.tgt] = graph.get_node(edge.tgt).distance_to_node(tgt_node);
+        if heuristic_dists.heuristic[edge.tgt] == u32::MAX {
+            heuristic_dists.heuristic[edge.tgt] = graph.get_node(edge.tgt).distance_to_node(tgt_node).floor() as u32;
         }
         let neighbour_node_dist = central_node_dist + edge.dist + heuristic_dists.heuristic[edge.tgt];
 
@@ -53,18 +53,18 @@ fn process_edges(graph: &Graph, node_id: usize, heuristic_dists: &mut Heuristica
 
 #[derive(Debug)]
 pub struct HeuristicalDistances {
-    g_plus_h: Vec<f32>,
+    g_plus_h: Vec<u32>,
     preds: Vec<usize>,
-    heuristic: Vec<f32>
+    heuristic: Vec<u32>
 }
 
 impl HeuristicalDistances {
     /// Creates a new `HeuristicalDistances` instance for given graph size with dist to src 0.0 and else infinity
-    fn init(num_nodes: usize, src_id: usize, start_end_dist: f32) -> Self {
-        let mut g_plus_h = vec![f32::MAX; num_nodes];
-        let mut heuristic = vec![f32::MAX; num_nodes];
+    fn init(num_nodes: usize, src_id: usize, start_end_dist: u32) -> Self {
+        let mut g_plus_h = vec![u32::MAX; num_nodes];
+        let mut heuristic = vec![u32::MAX; num_nodes];
         heuristic[src_id] = start_end_dist;
-        g_plus_h[src_id] = 0.0 + start_end_dist;
+        g_plus_h[src_id] = 0 + start_end_dist;
         Self {
             g_plus_h,
             preds: vec![usize::MAX; num_nodes],
@@ -76,7 +76,7 @@ impl HeuristicalDistances {
     /// This method assumes that the target can be reached from the source, otherwise it will
     /// output a path that solely consists of the target.
     pub fn build_path(&self, graph: &Graph, tgt_id: usize) -> Option<Vec<Node>> {
-        if self.g_plus_h[tgt_id] == f32::MAX {return None}
+        if self.g_plus_h[tgt_id] == u32::MAX {return None}
         let mut path = vec![];
         let mut curr_pred = tgt_id;
         // source node has no predecessor

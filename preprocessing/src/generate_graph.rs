@@ -230,7 +230,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
     let mut points: Vec<Node> = Vec::new();
     let mut edges: Vec<Edge> = Vec::new();
     let mut id = 0;
-    let max_distance = 30.0;
+    let max_distance = 30000;
 
     // set ids
     for i in 0..360 {
@@ -248,9 +248,9 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
         for j in 0..180 {
             if graph_grid[i][j].len() >= 1 {
                 let mut closest_ne = 0;
-                let mut distance_ne = 40000.0;
+                let mut distance_ne = max_distance;
                 let mut closest_se = 0;
-                let mut distance_se = 40000.0;
+                let mut distance_se = max_distance;
                 let mut temp_nodes: Vec<Node> = Vec::new();
                 let mut distance_to_node;
 
@@ -267,7 +267,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
                 for k in &graph_grid[i][j] {
                     for l in &temp_nodes {
                         if k.id != l.id {
-                            distance_to_node = k.distance_to(&Coordinates(l.lon, l.lat));
+                            distance_to_node = (k.distance_to(&Coordinates(l.lon, l.lat)) * 1000.0).ceil() as u32;
                             if distance_to_node < max_distance {
                                 //NORTH EAST
                                 if k.lon < l.lon && k.lat < l.lat {
@@ -313,8 +313,8 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
                             dist: distance_se,
                         });
                     }
-                    distance_ne = 40000.0;
-                    distance_se = 40000.0;
+                    distance_ne = u32::MAX;
+                    distance_se = u32::MAX;
                 }
             }
         }

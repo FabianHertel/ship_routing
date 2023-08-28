@@ -48,7 +48,7 @@ impl BinaryMinHeap {
     }
 
     /// Fixes the heap structure at `index`
-    fn reheap(&mut self, index: usize, priorities: &Vec<f32>) {
+    fn reheap(&mut self, index: usize, priorities: &Vec<u32>) {
         let len = self.heap.len();
         let left = get_left(index);
         let right = get_right(index);
@@ -70,7 +70,7 @@ impl BinaryMinHeap {
     }
 
     /// Push a key on the heap
-    pub fn push(&mut self, key: usize, priorities: &Vec<f32>) {
+    pub fn push(&mut self, key: usize, priorities: &Vec<u32>) {
         self.heap.push(key);
         let mut index = self.heap.len() - 1;
         self.positions[key] = index;
@@ -84,7 +84,7 @@ impl BinaryMinHeap {
     }
 
     /// Pop the minimum key from the heap
-    pub fn pop(&mut self, priorities: &Vec<f32>) -> usize {
+    pub fn pop(&mut self, priorities: &Vec<u32>) -> usize {
         let min_key = self.heap[0];
         self.positions[min_key] = usize::MAX;
 
@@ -100,7 +100,7 @@ impl BinaryMinHeap {
     /// Decrease the position of a key.
     /// This method must be called iff the priority of a key
     /// decreases after the heap creation.
-    pub fn decrease_key(&mut self, key: usize, priorities: &Vec<f32>) {
+    pub fn decrease_key(&mut self, key: usize, priorities: &Vec<u32>) {
         let mut index = self.positions[key];
         let mut parent = get_parent(index);
         while index > 0 && priorities[self.heap[parent]] > priorities[self.heap[index]] {
@@ -116,7 +116,7 @@ impl BinaryMinHeap {
     }
 
     /// Check whether a key is in the heap. If yes, update it, otherwise insert it.
-    pub fn insert_or_update(&mut self, key: usize, priorities: &Vec<f32>) {
+    pub fn insert_or_update(&mut self, key: usize, priorities: &Vec<u32>) {
         if self.contains(key) {
             self.decrease_key(key, priorities);
         } else {
@@ -137,7 +137,7 @@ mod test {
     #[test]
     fn test_push_pop() {
         let mut heap = BinaryMinHeap::with_capacity(5);
-        let prios = vec![0.0, 4.0, 2.0, 5.0, 1.0];
+        let prios = vec![0, 4, 2, 5, 1];
 
         heap.push(0, &prios);
         heap.push(1, &prios);
@@ -155,7 +155,7 @@ mod test {
     #[test]
     fn test_decrease_key() {
         let mut heap = BinaryMinHeap::with_capacity(5);
-        let mut prios = vec![0.0, 4.0, 2.0, 5.0, 3.0];
+        let mut prios = vec![0, 4, 2, 5, 3];
 
         heap.push(0, &prios);
         heap.push(1, &prios);
@@ -163,7 +163,7 @@ mod test {
         heap.push(3, &prios);
         heap.push(4, &prios);
 
-        prios[1] = 1.0;
+        prios[1] = 1;
         heap.decrease_key(1, &prios);
 
         assert_eq!(1, heap.heap[1]);
