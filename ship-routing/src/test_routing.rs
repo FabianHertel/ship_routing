@@ -76,7 +76,7 @@ fn run_routing(graph: &Graph, route: Route) {
     println!("BD\t{}\t{}", bidirectional_dijkstra.calculation_time, bidirectional_dijkstra.visited_nodes);
 
     assert_eq_routings(&dijkstra_result, &a_star_result);
-    //assert_eq_routings(&dijkstra_result, &bidirectional_dijkstra);
+    assert_eq_routings(&dijkstra_result, &bidirectional_dijkstra);
 }
 
 fn assert_eq_routings(routing_1: &ShortestPathResult, routing_2: &ShortestPathResult) {

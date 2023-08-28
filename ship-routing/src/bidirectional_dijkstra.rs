@@ -7,71 +7,78 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
 
     let now = SystemTime::now();
     
-    let mut dijkstra_dists_forward = DijkstraDistances::init(graph.n_nodes(), src_node.id);
+    let mut dijkstra_forward = DijkstraDistances::init(graph.n_nodes(), src_node.id);
     let mut priority_queue_forward = BinaryMinHeap::with_capacity(graph.n_nodes());
-    priority_queue_forward.push(src_node.id, &dijkstra_dists_forward.dists);
+    priority_queue_forward.push(src_node.id, &dijkstra_forward.dists);
 
-    let mut dijkstra_dists_backward = DijkstraDistances::init(graph.n_nodes(), tgt_node.id);
+    let mut dijkstra_backward = DijkstraDistances::init(graph.n_nodes(), tgt_node.id);
     let mut priority_queue_backward = BinaryMinHeap::with_capacity(graph.n_nodes());
-    priority_queue_backward.push(tgt_node.id, &dijkstra_dists_backward.dists);
+    priority_queue_backward.push(tgt_node.id, &dijkstra_backward.dists);
 
     let mut visited_nodes = 0;
-    let mut node_id = 0 as usize;
+    let mut result_dist = u32::MAX;
+    let mut node_id_middle = None;
 
     while !priority_queue_forward.is_empty() && !priority_queue_backward.is_empty() {
-        if visited_nodes % 2 == 1 {
-            node_id = priority_queue_forward.pop(&dijkstra_dists_forward.dists);
-            if dijkstra_dists_backward.visited[node_id] {
-                break;
-            } else {
-                process_edges(graph, node_id, &mut dijkstra_dists_forward, &mut priority_queue_forward);
+        let node_id_forward = priority_queue_forward.pop(&dijkstra_forward.dists);
+        let node_id_backward = priority_queue_backward.pop(&dijkstra_backward.dists);
+        dijkstra_forward.visited[node_id_forward] = true;
+        dijkstra_backward.visited[node_id_backward] = true;
+
+        for edge in graph.get_outgoing_edges(node_id_forward) {
+            let edge_tgt_dist = dijkstra_forward.dists[node_id_forward] + edge.dist;
+
+            if edge_tgt_dist < dijkstra_forward.dists[edge.tgt] {
+                dijkstra_forward.dists[edge.tgt] = edge_tgt_dist;
+                dijkstra_forward.preds[edge.tgt] = node_id_forward;
+                priority_queue_forward.insert_or_update(edge.tgt, &dijkstra_forward.dists);
             }
-        } else {
-            node_id = priority_queue_backward.pop(&dijkstra_dists_backward.dists);
-            if dijkstra_dists_forward.visited[node_id] {
-                break;
-            } else {
-                process_edges(graph, node_id, &mut dijkstra_dists_backward, &mut priority_queue_backward);
+            
+            if dijkstra_backward.visited[edge.tgt] && edge_tgt_dist + dijkstra_backward.dists[edge.tgt] < result_dist {
+                result_dist = edge_tgt_dist + dijkstra_backward.dists[edge.tgt];
+                node_id_middle = Some(edge.tgt);
             }
         }
-        visited_nodes += 1;
+        for edge in graph.get_outgoing_edges(node_id_backward) {
+            let edge_tgt_dist = dijkstra_backward.dists[node_id_backward] + edge.dist;
+
+            if edge_tgt_dist < dijkstra_backward.dists[edge.tgt] {
+                dijkstra_backward.dists[edge.tgt] = edge_tgt_dist;
+                dijkstra_backward.preds[edge.tgt] = node_id_backward;
+                priority_queue_backward.insert_or_update(edge.tgt, &dijkstra_backward.dists);
+            }
+            
+            if dijkstra_forward.visited[edge.tgt] && edge_tgt_dist + dijkstra_forward.dists[edge.tgt] < result_dist {
+                result_dist = edge_tgt_dist + dijkstra_forward.dists[edge.tgt];
+                node_id_middle = Some(edge.tgt);
+            }
+        }
+        if dijkstra_forward.dists[node_id_forward] + dijkstra_backward.dists[node_id_backward] >= result_dist {
+            break;
+        }
+
+        visited_nodes += 2;
     }
 
-    let mut path_forward = dijkstra_dists_forward.build_path(graph, node_id);
-    let mut path_backward = dijkstra_dists_backward.build_path(graph, node_id);
-    match (&mut path_forward, &mut path_backward) {
-        (Some(path_forward), Some(path_backward)) => {
+    let result_path = match node_id_middle {
+        Some(node_id) => {
+            let mut path_forward = dijkstra_forward.build_path(graph, node_id).unwrap();
+            let mut path_backward = dijkstra_backward.build_path(graph, node_id).unwrap();
             path_forward.pop(); // otherwise node in the middle is double
             path_backward.reverse();
-            path_forward.append(path_backward);
+            path_forward.append(&mut path_backward);
+            Some(path_forward)
         },
-        (_, _) => path_forward = None,
-    }
+        None => None,
+    };
 
     return ShortestPathResult {
-        distance: dijkstra_dists_backward.dists[node_id] + dijkstra_dists_forward.dists[node_id],
-        path: path_forward,
+        distance: result_dist,
+        path: result_path,
         calculation_time: now.elapsed().unwrap().as_millis(),
         visited_nodes
     }
 }
-
-/// Process the outgoing edges of the node with id `node_id`
-fn process_edges(graph: &Graph, node_id: usize, dijkstra_dists: &mut DijkstraDistances, pq: &mut BinaryMinHeap) {
-    let node_dist = dijkstra_dists.dists[node_id];
-    dijkstra_dists.visited[node_id] = true;
-    for edge in graph.get_outgoing_edges(node_id) {
-        let dist = node_dist + edge.dist;
-
-        if dist < dijkstra_dists.dists[edge.tgt] {
-            dijkstra_dists.dists[edge.tgt] = dist;
-            dijkstra_dists.preds[edge.tgt] = node_id;
-
-            pq.insert_or_update(edge.tgt, &dijkstra_dists.dists);
-        }
-    }
-}
-
 
 #[derive(Debug)]
 pub struct DijkstraDistances {
