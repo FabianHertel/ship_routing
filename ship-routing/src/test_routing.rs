@@ -1,4 +1,4 @@
-use graph_lib::{Graph, Coordinates};
+use graph_lib::{Graph, Coordinates, ShortestPathResult};
 
 use crate::{dijkstra::run_dijkstra, a_star::run_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra};
 
@@ -68,9 +68,25 @@ fn run_routing(graph: &Graph, route: Route) {
 
     println!("Routing {}, i.e. {:?} - {:?}", route.description, src_node, tgt_node);
     let dijkstra_result = run_dijkstra(src_node, tgt_node, graph);
-    println!("DI: {}", dijkstra_result);
+    println!("{}", dijkstra_result);
+    println!("DI\t{}\t{}", dijkstra_result.calculation_time, dijkstra_result.visited_nodes);
     let a_star_result = run_a_star(src_node, tgt_node, graph);
-    println!("A*: {}", a_star_result);
+    println!("A*\t{}\t{}", a_star_result.calculation_time, a_star_result.visited_nodes);
     let bidirectional_dijkstra = run_bidirectional_dijkstra(src_node, tgt_node, graph);
-    println!("BD: {}", bidirectional_dijkstra);
+    println!("BD\t{}\t{}", bidirectional_dijkstra.calculation_time, bidirectional_dijkstra.visited_nodes);
+
+    assert_eq_routings(&dijkstra_result, &a_star_result);
+    //assert_eq_routings(&dijkstra_result, &bidirectional_dijkstra);
+}
+
+fn assert_eq_routings(routing_1: &ShortestPathResult, routing_2: &ShortestPathResult) {
+    assert_eq!(routing_1.distance, routing_2.distance);
+    match routing_1.path {
+        Some(ref path) => {
+            assert_eq!(path.len(), routing_2.path.as_ref().unwrap().len());
+        },
+        None => {
+            assert!(routing_2.path.is_none());
+        },
+    }
 }

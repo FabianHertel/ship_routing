@@ -195,7 +195,7 @@ impl Display for ShortestPathResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.path.as_ref() {
             Some(path) => 
-                write!(f, "result {} km over {} nodes by checking {} nodes in {} millis",
+                write!(f, "Result: {} km over {} nodes by checking {} nodes in {} millis",
                     self.distance as f32 / 1000.0, path.len(),
                     self.visited_nodes, self.calculation_time),
             None => write!(f, "NO RESULT by checking {} nodes in {} millis",
