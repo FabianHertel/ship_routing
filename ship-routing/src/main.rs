@@ -45,7 +45,10 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
 fn main() {
     let command = std::env::args_os().nth(1);
     println!("Import Graph");
-    unsafe { GRAPH = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph") };
+    unsafe {
+        GRAPH = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph");
+        // GRAPH.edges_to_clipboard();
+    };
     println!("Finished importing");
 
     match command {
