@@ -1,5 +1,7 @@
+use std::collections::HashSet;
 use std::error::Error;
 use std::time::SystemTime;
+use graph_lib::{import_graph_from_file, Coordinates, Graph, Node};
 use regex::Regex;
 
 mod import_pbf;
@@ -8,7 +10,7 @@ mod island;
 mod test_polygon_test;
 
 use crate::import_pbf::{import_pbf, print_geojson};
-use crate::generate_graph::{generate_graph, read_geojsons};
+use crate::generate_graph::{generate_graph, read_geojsons, print_fmi_graph};
 use crate::test_polygon_test::static_polygon_tests;
 
 #[actix_web::main]
@@ -46,6 +48,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             transform(import_prefix.to_str().unwrap(), export_prefix.to_str().unwrap(), reduce)?;
             println!("Transformation completed, overall time: {} sek", now.elapsed()?.as_secs());
         }
+        Some("black_sea") => {
+            println!("Importing fmi file...");
+            let graph = import_graph_from_file("./data/graph-4mio-complete-u32.fmi").expect("Error importing Graph");
+            let in_black_sea = Coordinates(31.80666484258255, 44.0467677172621);
+            let node_in_black_sea = graph.closest_node(&in_black_sea);
+            sub_graph_connected(&graph, node_in_black_sea);
+        }
         Some("test") => {       // for developement
             let import_prefix = param_to_string(2, "reduced", None)?;
             static_polygon_tests(&import_prefix);
@@ -55,6 +64,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn sub_graph_connected(graph: &Graph, node_in_black_sea: &Node) {
+    let mut nodes_to_check: Vec<usize> = graph.get_outgoing_edges(node_in_black_sea.id).to_vec().iter().map(|e| e.tgt).collect();
+    let mut found_nodes: HashSet<usize> = nodes_to_check.clone().into_iter().collect();
+
+    while nodes_to_check.len() > 1 {
+        let node = nodes_to_check.pop().unwrap();
+        for edge in graph.get_outgoing_edges(node) {
+            if !found_nodes.contains(&edge.tgt) {
+                found_nodes.insert(edge.tgt);
+                nodes_to_check.push(edge.tgt);
+            }
+        }
+    }
+
+    let mut black_sea = graph.subgraph(found_nodes.into_iter().collect());
+    println!("nodes: {}, edges: {}", black_sea.n_nodes(), black_sea.edges.len());
+    print_fmi_graph(&black_sea.nodes, &mut black_sea.edges, "black_sea.fmi");
 }
 
 fn param_to_string(nth: usize, alt_str: &str, regex: Option<Result<regex::Regex, regex::Error>>) -> Result<String, String> {

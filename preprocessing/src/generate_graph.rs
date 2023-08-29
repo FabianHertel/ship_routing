@@ -325,7 +325,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
     return (points, edges);
 }
 
-fn print_fmi_graph(points: &mut Vec<Node>, edges: &mut Vec<Edge>, filename_out: &str) {
+pub fn print_fmi_graph(points: &Vec<Node>, edges: &mut Vec<Edge>, filename_out: &str) {
     let mut data_string = String::new();
     edges.sort_by(|a, b| a.src.cmp(&b.src));
 

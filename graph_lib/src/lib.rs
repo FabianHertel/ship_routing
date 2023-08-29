@@ -1,5 +1,6 @@
-use std::{f32::consts::PI, fmt::{Display, Formatter}};
+use std::{f32::consts::PI, fmt::{Display, Formatter}, collections::{HashMap}};
 use serde::{Serialize, Deserialize};
+use cli_clipboard;
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -153,6 +154,45 @@ impl Graph {
     /// Get all outgoing edges of a particular node
     pub fn get_outgoing_edges(&self, node_id: usize) -> &[Edge] {
         &self.edges[self.offsets[node_id]..self.offsets[node_id + 1]]
+    }
+
+    pub fn subgraph(&self, node_list: Vec<usize>) -> Graph {
+        let mut new_nodes: Vec<Node> = vec![];
+        let mut new_edges: Vec<Edge> = vec![];
+        let mut new_offsets: Vec<usize> = vec![];
+
+        let mut map_old_id_to_new_id: HashMap<usize, usize> = HashMap::new();
+        for (i, node_id) in node_list.iter().enumerate() {
+            map_old_id_to_new_id.insert(*node_id, i);
+        }
+
+        let mut offset_counter = 0;
+        for (new_id, old_id) in node_list.into_iter().enumerate() {
+            let old_node = self.get_node(old_id);
+            new_nodes.push(Node { id: new_id, lon: old_node.lon, lat: old_node.lat });
+            let old_edges = self.get_outgoing_edges(old_id);
+            new_edges.extend(old_edges.iter().map(|edge| Edge {src: new_id, tgt: map_old_id_to_new_id[&edge.tgt], dist: edge.dist}));
+            new_offsets.push(offset_counter);
+            offset_counter += old_edges.len();
+        }
+
+        return Graph { nodes: new_nodes, edges: new_edges, offsets: new_offsets }
+    }
+
+    pub fn nodes_to_clipboard(&self) {
+        let mut the_string = "[".to_string();
+        the_string += &self.nodes.iter().map(|node| format!("[{},{}]", node.lon, node.lat)).reduce(|e,f| e + "," + &f).unwrap();
+        the_string += "]";
+        cli_clipboard::set_contents(the_string.to_owned()).unwrap();
+        assert_eq!(cli_clipboard::get_contents().unwrap(), the_string);
+    }
+
+    pub fn edges_to_clipboard(&self) {
+        let mut the_string = "[".to_string();
+        the_string += &self.edges.iter().map(|edge| format!("[[{},{}],[{},{}]]", self.nodes[edge.src].lon, self.nodes[edge.src].lat, self.nodes[edge.tgt].lon, self.nodes[edge.tgt].lat)).reduce(|e,f| e + "," + &f).unwrap();
+        the_string += "]";
+        cli_clipboard::set_contents(the_string.to_owned()).unwrap();
+        assert_eq!(cli_clipboard::get_contents().unwrap(), the_string);
     }
 }
 
