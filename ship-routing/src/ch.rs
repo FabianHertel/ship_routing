@@ -9,7 +9,7 @@ pub fn ch_precalculations(graph: &Graph) {
     let mut hopcount_edges: Vec<usize> = vec![1; graph.n_edges()];
     let mut priority_queue = BinaryMinHeap::with_capacity(graph.n_nodes());
 
-    let mut importance: Vec<u32> = vec![0; graph.n_nodes()];
+    let mut importance: Vec<f32> = vec![0.0; graph.n_nodes()];
 
     let mut insertions: Vec<Insertions> = vec![];
     for node in &graph.nodes {
@@ -32,11 +32,12 @@ pub fn ch_precalculations(graph: &Graph) {
                 }
             }
         }
-        importance[node.id] = (l_counter[node.id]*1000 + insert_edges.len()*1000 / edges.len() + hopcount_sum*1000 / hopcount_sums[node.id]) as u32;
+        importance[node.id] = (l_counter[node.id] as f32 + insert_edges.len() as f32 / edges.len() as f32 + hopcount_sum as f32 / hopcount_sums[node.id] as f32);
         insertions.push(Insertions { hopcount_sum, insert_edges });
 
         priority_queue.push(node.id, &importance);
     }
+    println!("Initial importance calculated, start contraction");
 
     let first_contraction = priority_queue.pop(&importance);
     println!("{:?}", importance);
