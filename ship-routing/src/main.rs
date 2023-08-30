@@ -51,7 +51,7 @@ fn main() {
     println!("Import Graph");
     unsafe {
         GRAPH = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph");
-        // GRAPH.edges_to_clipboard();
+        GRAPH.edges_to_clipboard();
     };
     println!("Finished importing");
 

@@ -3014,6 +3014,7 @@ dependencies = [
 name = "ship-routing"
 version = "0.0.0"
 dependencies = [
+ "cli-clipboard",
  "graph_lib",
  "log",
  "rand 0.8.5",

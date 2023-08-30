@@ -1,5 +1,6 @@
-use std::time::SystemTime;
+use std::{time::SystemTime, collections::HashSet};
 use graph_lib::{ShortestPathResult, Graph, Node};
+use cli_clipboard;
 
 use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra_with_limit, binary_minheap::BinaryMinHeap};
 
@@ -11,6 +12,7 @@ pub fn ch_precalculations(graph: &Graph) {
 
     let mut importance: Vec<f32> = vec![0.0; graph.n_nodes()];
 
+    // initialize heuristic
     let mut insertions: Vec<Insertions> = vec![];
     for node in &graph.nodes {
         let edges = graph.get_outgoing_edges(node.id);
@@ -39,12 +41,26 @@ pub fn ch_precalculations(graph: &Graph) {
     }
     println!("Initial importance calculated, start contraction");
 
-    let first_contraction = priority_queue.pop(&importance);
-    println!("{:?}", importance);
+    // find independent subset
+    let mut contracted_nodes: Vec<usize> = vec![];
+    let mut neighbour_nodes: HashSet<usize> = HashSet::new();
+    while !priority_queue.is_empty() {
+        let next_node = priority_queue.pop(&importance);
+        if !neighbour_nodes.contains(&next_node) {
+            contracted_nodes.push(next_node);
+            neighbour_nodes.extend(graph.get_outgoing_edges(next_node).iter().map(|edge| edge.tgt));
+        } else {
+            // optional: without break not optimal, but faster
+            break;
+        }
+    }
+    let node_string = format!("[{}]", contracted_nodes.iter().map(|node_id| format!("[{},{}]", graph.get_node(*node_id).lon, graph.get_node(*node_id).lat)).reduce(|e,f| e+","+&f).unwrap());
+    cli_clipboard::set_contents(node_string.to_owned()).unwrap();
+    let first_contraction = contracted_nodes[0];
     println!("node {}, with {} neigbours and {} inserted edges, removed hopcounts: {} and inserted hopcounts: {}",
         first_contraction, graph.get_outgoing_edges(first_contraction).len(), insertions[first_contraction].insert_edges.len(),
         hopcount_sums[first_contraction], insertions[first_contraction].hopcount_sum
-    )
+    );
 }
 
 /// Run a Dijkstra from the source coodinates to the target coordinates
