@@ -30,33 +30,33 @@ pub fn run_witness_search(src_node: usize, tgt_node: usize, graph: &CHGraph, nod
             break;
         } 
 
-        for edge in &graph.borrow_node(node_id_forward).neighbours {
+        for (tgt, edge) in &graph.borrow_node(node_id_forward).neighbours {
             let edge_tgt_dist = forward_dist + edge.dist;
-            if edge.tgt != ignore_node {
-                if edge_tgt_dist < dijkstra_forward.dists[edge.tgt] {
-                    dijkstra_forward.dists[edge.tgt] = edge_tgt_dist;
-                    dijkstra_forward.preds[edge.tgt] = node_id_forward;
-                    priority_queue_forward.insert_or_update(edge.tgt, &dijkstra_forward.dists);
+            if *tgt != ignore_node {
+                if edge_tgt_dist < dijkstra_forward.dists[*tgt] {
+                    dijkstra_forward.dists[*tgt] = edge_tgt_dist;
+                    dijkstra_forward.preds[*tgt] = node_id_forward;
+                    priority_queue_forward.insert_or_update(*tgt, &dijkstra_forward.dists);
                 }
                 
-                if dijkstra_backward.visited[edge.tgt] && edge_tgt_dist + dijkstra_backward.dists[edge.tgt] < result_dist {
-                    result_dist = edge_tgt_dist + dijkstra_backward.dists[edge.tgt];
-                    node_id_middle = Some(edge.tgt);
+                if dijkstra_backward.visited[*tgt] && edge_tgt_dist + dijkstra_backward.dists[*tgt] < result_dist {
+                    result_dist = edge_tgt_dist + dijkstra_backward.dists[*tgt];
+                    node_id_middle = Some(*tgt);
                 }
             }
         }
-        for edge in &graph.borrow_node(node_id_backward).neighbours {
+        for (tgt, edge) in &graph.borrow_node(node_id_backward).neighbours {
             let edge_tgt_dist = backward_dist + edge.dist;
-            if edge.tgt != ignore_node {
-                if edge_tgt_dist < dijkstra_backward.dists[edge.tgt] {
-                    dijkstra_backward.dists[edge.tgt] = edge_tgt_dist;
-                    dijkstra_backward.preds[edge.tgt] = node_id_backward;
-                    priority_queue_backward.insert_or_update(edge.tgt, &dijkstra_backward.dists);
+            if *tgt != ignore_node {
+                if edge_tgt_dist < dijkstra_backward.dists[*tgt] {
+                    dijkstra_backward.dists[*tgt] = edge_tgt_dist;
+                    dijkstra_backward.preds[*tgt] = node_id_backward;
+                    priority_queue_backward.insert_or_update(*tgt, &dijkstra_backward.dists);
                 }
                 
-                if dijkstra_forward.visited[edge.tgt] && edge_tgt_dist + dijkstra_forward.dists[edge.tgt] < result_dist {
-                    result_dist = edge_tgt_dist + dijkstra_forward.dists[edge.tgt];
-                    node_id_middle = Some(edge.tgt);
+                if dijkstra_forward.visited[*tgt] && edge_tgt_dist + dijkstra_forward.dists[*tgt] < result_dist {
+                    result_dist = edge_tgt_dist + dijkstra_forward.dists[*tgt];
+                    node_id_middle = Some(*tgt);
                 }
             }
         }
