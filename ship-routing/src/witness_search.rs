@@ -1,22 +1,18 @@
-use std::time::SystemTime;
 use crate::{binary_minheap::BinaryMinHeap, ch::CHGraph};
 
 /// Run a bidirectional Dijkstra from the source coodinates to the target coordinates
-pub fn run_witness_search(src_node: usize, tgt_node: usize, graph: &CHGraph, node_limit: Option<usize>, dist_limit: u32, ignore_node: usize) -> u32 {
-
-    let now = SystemTime::now();
+pub fn run_witness_search(src_node: usize, tgt_node: usize, graph: &CHGraph, node_limit: Option<usize>, dist_limit: u32, ignore_node: usize, max_id: usize) -> u32 {
     
-    let mut dijkstra_forward = DijkstraDistances::init(graph.n_nodes(), src_node);
-    let mut priority_queue_forward = BinaryMinHeap::with_capacity(graph.n_nodes());
+    let mut dijkstra_forward = DijkstraDistances::init(max_id, src_node);
+    let mut priority_queue_forward = BinaryMinHeap::with_capacity(max_id);
     priority_queue_forward.push(src_node, &dijkstra_forward.dists);
 
-    let mut dijkstra_backward = DijkstraDistances::init(graph.n_nodes(), tgt_node);
-    let mut priority_queue_backward = BinaryMinHeap::with_capacity(graph.n_nodes());
+    let mut dijkstra_backward = DijkstraDistances::init(max_id, tgt_node);
+    let mut priority_queue_backward = BinaryMinHeap::with_capacity(max_id);
     priority_queue_backward.push(tgt_node, &dijkstra_backward.dists);
 
     let mut visited_nodes = 0u32;
-    let mut result_dist = u32::MAX;
-    let mut node_id_middle = None;
+    let mut result_dist: u32 = u32::MAX;
 
     while !priority_queue_forward.is_empty() && !priority_queue_backward.is_empty() {
         let node_id_forward = priority_queue_forward.pop(&dijkstra_forward.dists);
@@ -41,7 +37,6 @@ pub fn run_witness_search(src_node: usize, tgt_node: usize, graph: &CHGraph, nod
                 
                 if dijkstra_backward.visited[*tgt] && edge_tgt_dist + dijkstra_backward.dists[*tgt] < result_dist {
                     result_dist = edge_tgt_dist + dijkstra_backward.dists[*tgt];
-                    node_id_middle = Some(*tgt);
                 }
             }
         }
@@ -56,7 +51,6 @@ pub fn run_witness_search(src_node: usize, tgt_node: usize, graph: &CHGraph, nod
                 
                 if dijkstra_forward.visited[*tgt] && edge_tgt_dist + dijkstra_forward.dists[*tgt] < result_dist {
                     result_dist = edge_tgt_dist + dijkstra_forward.dists[*tgt];
-                    node_id_middle = Some(*tgt);
                 }
             }
         }

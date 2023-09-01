@@ -13,14 +13,16 @@ pub fn ch_precalculations(graph: &Graph) {
     let mut update_nodes = contracting_graph.nodes.keys().map(|node| *node).collect();
 
     while contracting_graph.n_nodes() as f32 > graph.n_nodes() as f32 * 0.1 {
-        contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter);
+        contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, graph.n_nodes());
 
         let (independent_set, affected_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
         contracting_graph.nodes_to_clipboard(graph, &independent_set);
         update_nodes = affected_nodes;
+        println!("found independent set");
+        // std::io::stdin().read_line(&mut String::new());
 
         contracting_graph.contract_nodes(independent_set, &mut l_counter);
-        println!("Graph of size {} and {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges());
+        println!("Contracted: Graph of size {} and {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges());
         contracting_graph.edges_to_clipboard(graph);
     }
     
@@ -79,8 +81,8 @@ impl CHGraph {
         return self.nodes.get(&id).expect(&format!("No node with id {}", id)).borrow_mut();
     }
 
-    pub fn update_importance_of(&self, importance: &mut Vec<f32>, update_nodes: &HashSet<usize>, priority_queue: &mut BinaryMinHeap, l_counter: &Vec<usize>) {
-        // initialize heuristic
+    pub fn update_importance_of(&self, importance: &mut Vec<f32>, update_nodes: &HashSet<usize>, priority_queue: &mut BinaryMinHeap, l_counter: &Vec<usize>, max_id: usize) {
+        let now = SystemTime::now();
         for node_id in update_nodes {       // TODO: parallel
             let mut hopcount_sum_insert = 0;
             let mut hopcount_sum = 0f32;
@@ -100,7 +102,7 @@ impl CHGraph {
                         let src_node = neighbour_ids[i];
                         let tgt_node = neighbour_ids[j];
                         let witness_search = run_witness_search(
-                            *src_node, *tgt_node, self, Some(50usize), edge_sum, *node_id);
+                            *src_node, *tgt_node, self, Some(50usize), edge_sum, *node_id, max_id);
                         if witness_search > edge_sum {
                             let hopcount = i_edge.hopcount + j_edge.hopcount;
                             insert_edges.push((*neighbour_ids[i], *neighbour_ids[j], CHEdge {dist: edge_sum, hopcount}));
@@ -109,13 +111,12 @@ impl CHGraph {
                     }
                 }
                 importance[node.id] = l_counter[node.id] as f32 + insert_edges.len() as f32 / neighbour_ids.len() as f32 + hopcount_sum_insert as f32 / hopcount_sum as f32;
-                priority_queue.push(node.id, &importance);
+                priority_queue.insert_or_update(node.id, &importance);
             } {
                 self.borrow_mut_node(*node_id).insertions = insert_edges;
             }
         }
-        // println!("{:?}", importance);
-        println!("Initial importance calculated, start contraction");
+        println!("Updated importance of {} nodes in {} ms", update_nodes.len(), now.elapsed().unwrap().as_millis());
     }
 
     pub fn find_best_independent_set(&self, priority_queue: &mut BinaryMinHeap, importance: &Vec<f32>) -> (Vec<usize>, HashSet<usize>) {
@@ -124,15 +125,16 @@ impl CHGraph {
         let mut importance_limit = f32::MAX;
         while !priority_queue.is_empty() {
             let next_node = priority_queue.pop(&importance);
-            if importance[next_node] > importance_limit + 1.0 {
+            if importance[next_node] > importance_limit {
                 // optional: without break not optimal, but faster
                 break;
             }
             if !neighbour_nodes.contains(&next_node) {
                 independent_set.push(next_node);
                 neighbour_nodes.extend(self.borrow_node(next_node).neighbours.iter().map(|(tgt, _)| tgt));
-            } else {
-                importance_limit = importance[next_node];
+            } else if importance_limit == f32::MAX {
+                importance_limit = importance[next_node] + 1.0;
+                println!("Importance limit: {}", importance_limit);
             }
         }
         return (independent_set, neighbour_nodes);
@@ -141,7 +143,7 @@ impl CHGraph {
     pub fn contract_nodes(&mut self, nodes: Vec<usize>, l_counter: &mut Vec<usize>) {
         nodes.iter().for_each(|node_id| {
             // println!("remove node {}", node_id);
-            let removed_node = self.nodes.remove(node_id).expect("contraction node doesn't exist");
+            let removed_node = self.nodes.remove(node_id).expect(&format!("contraction node with id {} doesn't exist", node_id));
 
             // remove from neighbours and increment their l counter
             for (tgt, _) in &removed_node.borrow().neighbours {
