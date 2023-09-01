@@ -124,6 +124,10 @@ pub struct Graph {
 }
 
 impl Graph {
+    pub fn clone(&self) -> Graph {
+        Graph { nodes: self.nodes.clone(), edges: self.edges.clone(), offsets: self.offsets.clone() }
+    }
+    
     pub fn closest_node(&self, point: &Coordinates) -> &Node {
         let mut closest_node = &self.nodes[0];
         let mut closest_dist = f32::MAX;
