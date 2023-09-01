@@ -1,8 +1,8 @@
-use std::{time::SystemTime, fs::{self, File}, error::Error, io::{Write, stdout}};
+use std::{time::SystemTime, fs::{self}, error::Error, io::{Write, stdout}};
 use rayon::prelude::*;
 use rand::Rng;
 
-use graph_lib::{Coordinates, Node, Edge};
+use graph_lib::{Coordinates, Node, Edge, print_fmi_graph};
 
 use crate::island::{Island, GRID_DIVISIONS, grid_cell_of_coordinate, GridCell};
 
@@ -323,37 +323,6 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
     }
     // println!("");
     return (points, edges);
-}
-
-pub fn print_fmi_graph(points: &Vec<Node>, edges: &mut Vec<Edge>, filename_out: &str) {
-    let mut data_string = String::new();
-    edges.sort_by(|a, b| a.src.cmp(&b.src));
-
-    data_string = data_string + &points.len().to_string() + "\n";
-    data_string = data_string + &edges.len().to_string() + "\n";
-
-    for node in points {
-        data_string = data_string
-            + &node.id.to_string()
-            + " "
-            + &node.lat.to_string()
-            + " "
-            + &node.lon.to_string()
-            + "\n";
-    }
-    for edge in edges {
-        data_string = data_string
-            + &edge.src.to_string()
-            + " "
-            + &edge.tgt.to_string()
-            + " "
-            + &edge.dist.to_string()
-            + "\n";
-    }
-
-    let mut f = File::create("data/".to_owned() + filename_out).expect("Unable to create file");
-    f.write_all(data_string.as_bytes()).expect("unable to write file");
-
 }
 
 #[inline]

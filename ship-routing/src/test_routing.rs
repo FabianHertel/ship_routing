@@ -11,7 +11,7 @@ struct Route {
 }
 
 // DEPENDS ON THE GRAPH
-pub fn test_samples(graph: &Graph) {
+pub fn test_samples(graph: &Graph, ch_graph: &Graph) {
     let coords_med_to_red_sea = Route {
         start: Coordinates(28.677027, 33.622692),
         end: Coordinates(37.114494, 23.184566),
@@ -54,15 +54,15 @@ pub fn test_samples(graph: &Graph) {
     //     optimal_route_node_count: 
     // };
 
-    run_routing(graph, coords_med_to_red_sea);
-    run_routing(graph, coords_med_to_black_sea);
-    run_routing(graph, coords_indic_to_pacific);
-    run_routing(graph, coords_atlantic_to_indic);
-    run_routing(graph, coords_east_to_west);
+    run_routing(graph, ch_graph, coords_med_to_red_sea);
+    run_routing(graph, ch_graph, coords_med_to_black_sea);
+    run_routing(graph, ch_graph, coords_indic_to_pacific);
+    run_routing(graph, ch_graph, coords_atlantic_to_indic);
+    run_routing(graph, ch_graph, coords_east_to_west);
 
 }
 
-fn run_routing(graph: &Graph, route: Route) {
+fn run_routing(graph: &Graph, ch_graph: &Graph, route: Route) {
     let src_node = graph.closest_node(&route.start);
     let tgt_node = graph.closest_node(&route.end);
 
@@ -74,7 +74,7 @@ fn run_routing(graph: &Graph, route: Route) {
     println!("A*\t{}\t{}", a_star_result.calculation_time, a_star_result.visited_nodes);
     let bidirectional_dijkstra = run_bidirectional_dijkstra(src_node, tgt_node, graph);
     println!("BD\t{}\t{}", bidirectional_dijkstra.calculation_time, bidirectional_dijkstra.visited_nodes);
-    let ch_result = run_ch(src_node, tgt_node, graph);
+    let ch_result = run_ch(src_node, tgt_node, ch_graph);
     println!("CH\t{}\t{}", ch_result.calculation_time, ch_result.visited_nodes);
 
     assert_eq_routings(&dijkstra_result, &a_star_result);

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::error::Error;
 use std::time::SystemTime;
-use graph_lib::{import_graph_from_file, Coordinates, Graph, Node};
+use graph_lib::{import_graph_from_file, Coordinates, Graph, Node, print_fmi_graph};
 use regex::Regex;
 
 mod import_pbf;
@@ -10,7 +10,7 @@ mod island;
 mod test_polygon_test;
 
 use crate::import_pbf::{import_pbf, print_geojson};
-use crate::generate_graph::{generate_graph, read_geojsons, print_fmi_graph};
+use crate::generate_graph::{generate_graph, read_geojsons};
 use crate::test_polygon_test::static_polygon_tests;
 
 #[actix_web::main]

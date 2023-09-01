@@ -1,10 +1,12 @@
 use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}};
-use graph_lib::{ShortestPathResult, Graph, Node};
+use graph_lib::{ShortestPathResult, Graph, Node, Edge, print_fmi_graph};
 use cli_clipboard;
-use crate::{binary_minheap::BinaryMinHeap, witness_search::run_witness_search};
+use crate::{binary_minheap::BinaryMinHeap, witness_search::run_witness_search, bidirectional_dijkstra::run_bidirectional_dijkstra};
 
 pub fn ch_precalculations(graph: &Graph) {
     let mut contracting_graph = CHGraph::from_graph(graph);
+    let mut final_ch_graph = CHGraph::from_graph(graph);       // will be the upwareded DAG
+
     println!("Graph of size {} and {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges());
     let mut l_counter: Vec<usize> = vec![0; contracting_graph.n_nodes()];
     let mut priority_queue: BinaryMinHeap = BinaryMinHeap::with_capacity(contracting_graph.n_nodes());
@@ -12,33 +14,33 @@ pub fn ch_precalculations(graph: &Graph) {
 
     let mut update_nodes = contracting_graph.nodes.keys().map(|node| *node).collect();
 
-    while contracting_graph.n_nodes() as f32 > graph.n_nodes() as f32 * 0.1 {
+    let mut level_counter = 0;
+    let now = SystemTime::now();
+    while contracting_graph.n_nodes() as f32 > graph.n_nodes() as f32 * 0.01 {
         contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, graph.n_nodes());
 
         let (independent_set, affected_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
         contracting_graph.nodes_to_clipboard(graph, &independent_set);
         update_nodes = affected_nodes;
-        println!("found independent set");
         // std::io::stdin().read_line(&mut String::new());
 
-        contracting_graph.contract_nodes(independent_set, &mut l_counter);
-        println!("Contracted: Graph of size {} and {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges());
+        contracting_graph.contract_nodes(independent_set, &mut l_counter, &mut final_ch_graph);
+        println!("Contracted: graph of size {} and {} edges; final graph with {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges(), final_ch_graph.n_edges());
         contracting_graph.edges_to_clipboard(graph);
+
+        level_counter += 1;
     }
     
+    println!("Finished graph contraction in {} min, final graph has {} levels, {} nodes on top level and {} edges",
+        now.elapsed().unwrap().as_secs_f64() / 60.0, level_counter, contracting_graph.n_nodes(), final_ch_graph.n_edges());
+
+    let mut final_fmi_graph = final_ch_graph.to_fmi_graph(graph);
+    print_fmi_graph(&final_fmi_graph.nodes, &mut final_fmi_graph.edges, "ch_black_sea.fmi");
 }
 
 /// Run a Dijkstra from the source coodinates to the target coordinates
 pub fn run_ch(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPathResult {
-    let now = SystemTime::now();
-
-    
-    return ShortestPathResult {
-        distance: u32::MAX,
-        path: None,
-        calculation_time: now.elapsed().unwrap().as_millis(),
-        visited_nodes: 0
-    }
+    return run_bidirectional_dijkstra(src_node, tgt_node, graph);
 }
 
 pub struct CHGraph {
@@ -67,6 +69,16 @@ impl CHGraph {
             src_node.borrow_mut().neighbours.insert(edge.tgt, CHEdge { hopcount: 1, dist: edge.dist });
         }
         return new_graph;
+    }
+
+    pub fn to_fmi_graph(&self, graph: &Graph) -> Graph {
+        let mut edges = vec![];
+        let mut offsets: Vec<usize> = vec![0; graph.n_nodes()];
+        for node in &graph.nodes {
+            offsets[node.id] = edges.len();
+            self.borrow_node(node.id).neighbours.iter().for_each(|(tgt, edge)| edges.push(Edge {src: node.id, tgt: *tgt, dist: edge.dist}));
+        }
+        Graph { nodes: graph.nodes.clone(), edges, offsets }
     }
 
     pub fn n_nodes(&self) -> usize {
@@ -140,7 +152,7 @@ impl CHGraph {
         return (independent_set, neighbour_nodes);
     }
 
-    pub fn contract_nodes(&mut self, nodes: Vec<usize>, l_counter: &mut Vec<usize>) {
+    pub fn contract_nodes(&mut self, nodes: Vec<usize>, l_counter: &mut Vec<usize>, expansion_graph: &mut CHGraph) {
         nodes.iter().for_each(|node_id| {
             // println!("remove node {}", node_id);
             let removed_node = self.nodes.remove(node_id).expect(&format!("contraction node with id {} doesn't exist", node_id));
@@ -150,6 +162,7 @@ impl CHGraph {
                 // println!("remove {} from {}", node_id, tgt);
                 self.borrow_mut_node(*tgt).neighbours.remove(&node_id);
                 l_counter[*tgt] += 1;
+                expansion_graph.borrow_mut_node(*tgt).neighbours.remove(&node_id);      // because all neigbours will have higer level
             }
 
             // add insertions
@@ -157,6 +170,8 @@ impl CHGraph {
                 // println!("insert edge from {} to {}", src, tgt);
                 self.borrow_mut_node(*tgt).neighbours.insert(*src, new_edge.clone());
                 self.borrow_mut_node(*src).neighbours.insert(*tgt, new_edge.to_owned());
+                expansion_graph.borrow_mut_node(*tgt).neighbours.insert(*src, new_edge.clone());
+                expansion_graph.borrow_mut_node(*src).neighbours.insert(*tgt, new_edge.to_owned());
             }
         });
     }

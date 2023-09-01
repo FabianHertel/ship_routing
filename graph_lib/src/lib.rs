@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, fmt::{Display, Formatter}, collections::{HashMap}};
+use std::{f32::consts::PI, fmt::{Display, Formatter}, collections::HashMap, io::Write};
 use serde::{Serialize, Deserialize};
 use cli_clipboard;
 
@@ -246,4 +246,35 @@ impl Display for ShortestPathResult {
                     self.visited_nodes, self.calculation_time)
         }
     }
+}
+
+pub fn print_fmi_graph(points: &Vec<Node>, edges: &mut Vec<Edge>, filename_out: &str) {
+    let mut data_string = String::new();
+    edges.sort_by(|a, b| a.src.cmp(&b.src));
+
+    data_string = data_string + &points.len().to_string() + "\n";
+    data_string = data_string + &edges.len().to_string() + "\n";
+
+    for node in points {
+        data_string = data_string
+            + &node.id.to_string()
+            + " "
+            + &node.lat.to_string()
+            + " "
+            + &node.lon.to_string()
+            + "\n";
+    }
+    for edge in edges {
+        data_string = data_string
+            + &edge.src.to_string()
+            + " "
+            + &edge.tgt.to_string()
+            + " "
+            + &edge.dist.to_string()
+            + "\n";
+    }
+
+    let mut f = File::create("data/".to_owned() + filename_out).expect("Unable to create file");
+    f.write_all(data_string.as_bytes()).expect("unable to write file");
+
 }

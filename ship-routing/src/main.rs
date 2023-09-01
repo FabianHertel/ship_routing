@@ -18,6 +18,11 @@ static mut GRAPH: Graph = Graph {
     edges: Vec::new(),
     offsets: Vec::new(),
 };
+static mut CH_GRAPH: Graph = Graph {
+    nodes: Vec::new(),
+    edges: Vec::new(),
+    offsets: Vec::new(),
+};
 
 #[tauri::command]
 fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
@@ -52,6 +57,7 @@ fn main() {
     println!("Import Graph");
     unsafe {
         GRAPH = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph");
+        CH_GRAPH = import_graph_from_file("./data/ch_graph.fmi").expect("Error importing Graph");
         // GRAPH.edges_to_clipboard();
     };
     println!("Finished importing");
@@ -65,7 +71,7 @@ fn main() {
     match command {
         Some(command) => {
             if let Some("test") = command.to_str() {
-                test_samples(unsafe { &GRAPH })
+                test_samples(unsafe { &GRAPH }, unsafe { &CH_GRAPH});
             } else {
                 println!("Command not known. Exit")
             }
