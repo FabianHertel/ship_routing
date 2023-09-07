@@ -1,5 +1,5 @@
 use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}};
-use graph_lib::{ShortestPathResult, Graph, Node, Edge, print_fmi_graph};
+use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_graph_to_file};
 use cli_clipboard;
 use crate::{binary_minheap::BinaryMinHeap, witness_search::run_witness_search, bidirectional_dijkstra::run_bidirectional_dijkstra};
 
@@ -35,7 +35,7 @@ pub fn ch_precalculations(graph: &Graph) {
         now.elapsed().unwrap().as_secs_f64() / 60.0, level_counter, contracting_graph.n_nodes(), final_ch_graph.n_edges());
 
     let mut final_fmi_graph = final_ch_graph.to_fmi_graph(graph);
-    print_fmi_graph(&final_fmi_graph.nodes, &mut final_fmi_graph.edges, "ch_black_sea.fmi");
+    print_graph_to_file(&final_fmi_graph.nodes, &mut final_fmi_graph.edges, "ch_black_sea");
 }
 
 /// Run a Dijkstra from the source coodinates to the target coordinates

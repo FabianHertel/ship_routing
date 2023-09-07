@@ -1,5 +1,7 @@
 /target
 /data/geojson/*.json
+/data/graph/*.fmi
+/data/graph/*.bin
 /data/*osm.pbf
 /data/*.fmi
 

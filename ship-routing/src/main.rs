@@ -8,7 +8,7 @@ mod ch;
 mod test_routing;
 mod witness_search;
 
-use graph_lib::{import_graph_from_file, Coordinates, Graph};
+use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file};
 use test_routing::test_samples;
 
 use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{ch_precalculations, run_ch}};
@@ -67,8 +67,8 @@ fn main() {
     let command = std::env::args_os().nth(1);
     println!("Import Graph");
     unsafe {
-        GRAPH = import_graph_from_file("./data/graph.fmi").expect("Error importing Graph");
-        CH_GRAPH = import_graph_from_file("./data/ch_graph.fmi").expect("Error importing Graph");
+        GRAPH = import_graph_from_file("graph").expect("Error importing Graph");
+        CH_GRAPH = import_graph_from_file("ch_graph").expect("Error importing Graph");
         // GRAPH.edges_to_clipboard();
     };
     println!("Finished importing");

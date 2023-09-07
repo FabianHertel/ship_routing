@@ -2,7 +2,7 @@ use std::{time::SystemTime, fs::{self}, error::Error, io::{Write, stdout}};
 use rayon::prelude::*;
 use rand::Rng;
 
-use graph_lib::{Coordinates, Node, Edge, print_fmi_graph};
+use graph_lib::{Coordinates, Node, Edge, file_interface::print_graph_to_file};
 
 use crate::island::{Island, GRID_DIVISIONS, grid_cell_of_coordinate, GridCell};
 
@@ -36,7 +36,7 @@ pub fn generate_graph(filename_out: &str, import_prefix: &str) -> Result<(), Box
 
     println!("5/5: Writing graph into {} ...", filename_out);
     let now = SystemTime::now();
-    print_fmi_graph(&mut nodes, &mut edges, filename_out);
+    print_graph_to_file(&mut nodes, &mut edges, filename_out);
     println!("5/5 Finished file write {} sek", now.elapsed().unwrap().as_secs());
     Ok(())
 }

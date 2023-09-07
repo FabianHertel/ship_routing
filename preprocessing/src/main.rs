@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::error::Error;
 use std::time::SystemTime;
-use graph_lib::{import_graph_from_file, Coordinates, Graph, Node, print_fmi_graph};
+use graph_lib::{Coordinates, Graph, Node, file_interface::{print_graph_to_file, import_graph_from_file}};
 use regex::Regex;
 
 mod import_pbf;
@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("Import completed, overall time: {} sek", now.elapsed()?.as_secs());
         }
         Some("generate") => {
-            let filename_out = param_to_string(2, "graph.fmi", Some(Regex::new(r".fmi$")))?;
+            let filename_out = param_to_string(2, "graph", None)?;
             let import_prefix = param_to_string(3, "complete", None)?;
             
             let now = SystemTime::now();
@@ -48,9 +48,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
             transform(import_prefix.to_str().unwrap(), export_prefix.to_str().unwrap(), reduce)?;
             println!("Transformation completed, overall time: {} sek", now.elapsed()?.as_secs());
         }
+        Some("bin_file") => {      // for developement
+            let filename = param_to_string(2, "graph", None)?;
+
+            let now = SystemTime::now();
+            println!("Reading ...");
+            let mut graph = import_graph_from_file(&filename).expect(&format!("no graph with name {} found", filename));
+            println!("Finished reading: {} sek", now.elapsed()?.as_secs());
+            print_graph_to_file(&graph.nodes, &mut graph.edges, &filename);
+            println!("Finished writing: {} sek", now.elapsed()?.as_secs());
+        }
         Some("black_sea") => {
             println!("Importing fmi file...");
-            let graph = import_graph_from_file("./data/graph-4mio-complete-u32.fmi").expect("Error importing Graph");
+            let graph = import_graph_from_file("graph-4mio-complete-u32").expect("Error importing Graph");
             let in_black_sea = Coordinates(31.80666484258255, 44.0467677172621);
             let node_in_black_sea = graph.closest_node(&in_black_sea);
             sub_graph_connected(&graph, node_in_black_sea);
@@ -82,7 +92,7 @@ fn sub_graph_connected(graph: &Graph, node_in_black_sea: &Node) {
 
     let mut black_sea = graph.subgraph(found_nodes.into_iter().collect());
     println!("nodes: {}, edges: {}", black_sea.n_nodes(), black_sea.edges.len());
-    print_fmi_graph(&black_sea.nodes, &mut black_sea.edges, "black_sea.fmi");
+    print_graph_to_file(&black_sea.nodes, &mut black_sea.edges, "black_sea");
 }
 
 fn param_to_string(nth: usize, alt_str: &str, regex: Option<Result<regex::Regex, regex::Error>>) -> Result<String, String> {
