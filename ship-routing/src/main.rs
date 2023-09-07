@@ -11,7 +11,7 @@ mod witness_search;
 use graph_lib::{import_graph_from_file, Coordinates, Graph};
 use test_routing::test_samples;
 
-use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::ch_precalculations};
+use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{ch_precalculations, run_ch}};
 
 static mut GRAPH: Graph = Graph {
     nodes: Vec::new(),
@@ -35,6 +35,7 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
         let (src_node, tgt_node) = (GRAPH.closest_node(&src_coordinates), GRAPH.closest_node(&tgt_coordinates));
         // println!("Start dijkstra with start: {:?}, end: {:?}", src_node, tgt_node);
     
+        let ch_result = run_ch(src_node, tgt_node, &CH_GRAPH);
         let dijkstra_result = run_bidirectional_dijkstra(src_node, tgt_node, &GRAPH);
 
         match &dijkstra_result.path {
@@ -45,7 +46,17 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
             }
             None => ()
         }
-        println!("Finished dijkstra from {} to {} with {}", src_node.id, tgt_node.id, dijkstra_result);
+
+        match &ch_result.path {
+            Some(current_path) => {
+                for i in 0..current_path.len() {
+                    shortest_path.push([current_path[i].lat, current_path[i].lon]);
+                }
+            }
+            None => ()
+        }
+        println!("Dijkstra: {}", dijkstra_result);
+        println!("CH: {}", ch_result);
     }
 
 
@@ -62,18 +73,12 @@ fn main() {
     };
     println!("Finished importing");
 
-    println!("CH Precalculations");
-    unsafe {
-        ch_precalculations(&GRAPH);
-    }
-    println!("Finished precalculations");
-
     match command {
         Some(command) => {
-            if let Some("test") = command.to_str() {
-                test_samples(unsafe { &GRAPH }, unsafe { &CH_GRAPH});
-            } else {
-                println!("Command not known. Exit")
+            match command.to_str() {
+                Some("test") => test_samples(unsafe { &GRAPH }, unsafe { &CH_GRAPH}),
+                Some("ch_precalc") => unsafe {ch_precalculations(&GRAPH)},
+                _ => println!("Command not known. Exit"),
             }
         },
         None => {
