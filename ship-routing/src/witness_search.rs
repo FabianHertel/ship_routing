@@ -1,6 +1,7 @@
 use crate::{binary_minheap::BinaryMinHeap, ch::CHGraph};
 
 /// Run a bidirectional Dijkstra from the source coodinates to the target coordinates
+#[inline]
 pub fn run_witness_search(src_node: usize, tgt_node: usize, graph: &CHGraph, node_limit: Option<usize>, dist_limit: u32, ignore_node: usize, max_id: usize) -> u32 {
     
     let mut dijkstra_forward = DijkstraDistances::init(max_id, src_node);

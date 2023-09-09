@@ -95,6 +95,7 @@ impl CHGraph {
 
     pub fn update_importance_of(&self, importance: &mut Vec<f32>, update_nodes: &HashSet<usize>, priority_queue: &mut BinaryMinHeap, l_counter: &Vec<usize>, max_id: usize) {
         let now = SystemTime::now();
+        let mut witness_time = 0.0;
         for node_id in update_nodes {       // TODO: parallel
             let mut hopcount_sum_insert = 0;
             let mut hopcount_sum = 0f32;
@@ -111,11 +112,12 @@ impl CHGraph {
                         let i_edge = neighbours.get(neighbour_ids[i]).unwrap();
                         let j_edge = neighbours.get(neighbour_ids[j]).unwrap();
                         let edge_sum =  i_edge.dist + j_edge.dist;
-                        let src_node = neighbour_ids[i];
-                        let tgt_node = neighbour_ids[j];
-                        let witness_search = run_witness_search(
-                            *src_node, *tgt_node, self, Some(50usize), edge_sum, *node_id, max_id);
-                        if witness_search > edge_sum {
+                        let n1 = neighbour_ids[i];
+                        let n2 = neighbour_ids[j];
+                        let ws_now = SystemTime::now();
+                        let is_shortcut_needed = self.is_shortcut_needed(*n1, *n2, edge_sum, *node_id, max_id);
+                        witness_time += ws_now.elapsed().unwrap().as_secs_f32();
+                        if is_shortcut_needed {
                             let hopcount = i_edge.hopcount + j_edge.hopcount;
                             insert_edges.push((*neighbour_ids[i], *neighbour_ids[j], CHEdge {dist: edge_sum, hopcount}));
                             hopcount_sum_insert += hopcount;
@@ -128,7 +130,18 @@ impl CHGraph {
                 self.borrow_mut_node(*node_id).insertions = insert_edges;
             }
         }
-        println!("Updated importance of {} nodes in {} ms", update_nodes.len(), now.elapsed().unwrap().as_millis());
+        println!("Updated importance of {} nodes in {} ms, witness search took: {} ms", update_nodes.len(), now.elapsed().unwrap().as_millis(), (witness_time * 1000.0) as u64);
+    }
+
+    #[inline]
+    fn is_shortcut_needed(&self, n1: usize, n2: usize, edge_sum: u32, btw_node: usize, max_id: usize) -> bool {
+        if self.borrow_node(n1).neighbours.contains_key(&n2) {
+            return false;
+        }
+        let witness_search = run_witness_search(
+            n1, n2, self, None, edge_sum, btw_node, max_id
+        );
+        return witness_search > edge_sum;
     }
 
     pub fn find_best_independent_set(&self, priority_queue: &mut BinaryMinHeap, importance: &Vec<f32>) -> (Vec<usize>, HashSet<usize>) {
