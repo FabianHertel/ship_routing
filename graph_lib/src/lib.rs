@@ -4,7 +4,9 @@ use std::{f32::consts::PI, fmt::{Display, Formatter}, collections::HashMap};
 use serde::{Serialize, Deserialize};
 use cli_clipboard;
 
-
+/**
+ * (lon, lat)
+ */
 #[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 pub struct Coordinates(pub f32, pub f32);
 

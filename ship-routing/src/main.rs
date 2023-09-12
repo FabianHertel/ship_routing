@@ -6,7 +6,7 @@ mod bidirectional_dijkstra;
 mod binary_minheap;
 mod ch;
 mod test_routing;
-mod witness_search;
+mod ws_a_star;
 
 use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file};
 use test_routing::test_samples;
@@ -33,10 +33,10 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
     
     unsafe {
         let (src_node, tgt_node) = (GRAPH.closest_node(&src_coordinates), GRAPH.closest_node(&tgt_coordinates));
-        // println!("Start dijkstra with start: {:?}, end: {:?}", src_node, tgt_node);
+        // println!("Routing from {:?} to {:?}", src_node, tgt_node);
     
         let ch_result = run_ch(src_node, tgt_node, &CH_GRAPH);
-        let dijkstra_result = run_bidirectional_dijkstra(src_node, tgt_node, &GRAPH);
+        let dijkstra_result = run_bidirectional_dijkstra(src_node, tgt_node, &GRAPH, true);
 
         match &dijkstra_result.path {
             Some(current_path) => {
@@ -77,7 +77,10 @@ fn main() {
         Some(command) => {
             match command.to_str() {
                 Some("test") => test_samples(unsafe { &GRAPH }, unsafe { &CH_GRAPH}),
-                Some("ch_precalc") => unsafe {ch_precalculations(&GRAPH)},
+                Some("ch_precalc") => unsafe {
+                    let filename = std::env::args_os().nth(2).ok_or("specify a filename").expect("specify a filename");
+                    ch_precalculations(&GRAPH, filename.to_str().unwrap());
+                },
                 _ => println!("Command not known. Exit"),
             }
         },

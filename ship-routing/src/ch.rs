@@ -1,9 +1,9 @@
 use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}};
-use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_graph_to_file};
+use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_graph_to_file, Coordinates};
 use cli_clipboard;
-use crate::{binary_minheap::BinaryMinHeap, witness_search::run_witness_search, bidirectional_dijkstra::run_bidirectional_dijkstra};
+use crate::{binary_minheap::BinaryMinHeap, ws_a_star::ws_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra};
 
-pub fn ch_precalculations(graph: &Graph) {
+pub fn ch_precalculations(graph: &Graph, filename: &str) {
     let mut contracting_graph = CHGraph::from_graph(graph);
     let mut final_ch_graph = CHGraph::from_graph(graph);       // will be the upwareded DAG
 
@@ -20,13 +20,14 @@ pub fn ch_precalculations(graph: &Graph) {
         contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, graph.n_nodes());
 
         let (independent_set, affected_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
-        contracting_graph.nodes_to_clipboard(graph, &independent_set);
         update_nodes = affected_nodes;
-        // std::io::stdin().read_line(&mut String::new());
-
-        contracting_graph.contract_nodes(independent_set, &mut l_counter, &mut final_ch_graph);
+        // contracting_graph.nodes_and_edges_to_clipboard(graph, &independent_set);
+        
+        contracting_graph.contract_nodes(&independent_set, &mut l_counter, &mut final_ch_graph);
         println!("Contracted: graph of size {} and {} edges; final graph with {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges(), final_ch_graph.n_edges());
-        contracting_graph.edges_to_clipboard(graph);
+        // contracting_graph.edges_to_clipboard(graph);
+        println!("{:?}", final_ch_graph.borrow_node(2858).neighbours);
+        // let _ = std::io::stdin().read_line(&mut String::new());
 
         level_counter += 1;
     }
@@ -35,16 +36,17 @@ pub fn ch_precalculations(graph: &Graph) {
         now.elapsed().unwrap().as_secs_f64() / 60.0, level_counter, contracting_graph.n_nodes(), final_ch_graph.n_edges());
 
     let mut final_fmi_graph = final_ch_graph.to_fmi_graph(graph);
-    print_graph_to_file(&final_fmi_graph.nodes, &mut final_fmi_graph.edges, "ch_black_sea");
+    println!("{:?}", final_fmi_graph.get_outgoing_edges(2858));
+    print_graph_to_file(&final_fmi_graph.nodes, &mut final_fmi_graph.edges, filename);
 }
 
 /// Run a Dijkstra from the source coodinates to the target coordinates
 pub fn run_ch(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPathResult {
-    return run_bidirectional_dijkstra(src_node, tgt_node, graph);
+    return run_bidirectional_dijkstra(src_node, tgt_node, graph, false);
 }
 
 pub struct CHGraph {
-    nodes: HashMap<usize, RefCell<CHNode>>
+    nodes: HashMap<usize, RefCell<CHNode>>,
 }
 
 impl CHGraph {
@@ -61,7 +63,8 @@ impl CHGraph {
                 id: node.id,
                 // l: 0,
                 // houcount_sum: graph.get_outgoing_edges(node.id).len(),
-                insertions: vec![]
+                insertions: vec![],
+                coordinades: Coordinates(node.lon, node.lat)
             }));
         }
         for edge in &graph.edges {
@@ -130,7 +133,9 @@ impl CHGraph {
                 self.borrow_mut_node(*node_id).insertions = insert_edges;
             }
         }
-        println!("Updated importance of {} nodes in {} ms, witness search took: {} ms", update_nodes.len(), now.elapsed().unwrap().as_millis(), (witness_time * 1000.0) as u64);
+        print!("Updated importance of {} nodes in {} ms, witness search took: {} ms; ",
+            update_nodes.len(), now.elapsed().unwrap().as_millis(), (witness_time * 1000.0) as u64
+        );
     }
 
     #[inline]
@@ -138,10 +143,10 @@ impl CHGraph {
         if self.borrow_node(n1).neighbours.contains_key(&n2) {
             return false;
         }
-        let witness_search = run_witness_search(
-            n1, n2, self, None, edge_sum, btw_node, max_id
+        let witness_search = ws_a_star(
+            n1, n2, self, edge_sum, btw_node, max_id
         );
-        return witness_search > edge_sum;
+        return witness_search;
     }
 
     pub fn find_best_independent_set(&self, priority_queue: &mut BinaryMinHeap, importance: &Vec<f32>) -> (Vec<usize>, HashSet<usize>) {
@@ -151,7 +156,6 @@ impl CHGraph {
         while !priority_queue.is_empty() {
             let next_node = priority_queue.pop(&importance);
             if importance[next_node] > importance_limit {
-                // optional: without break not optimal, but faster
                 break;
             }
             if !neighbour_nodes.contains(&next_node) {
@@ -159,13 +163,13 @@ impl CHGraph {
                 neighbour_nodes.extend(self.borrow_node(next_node).neighbours.iter().map(|(tgt, _)| tgt));
             } else if importance_limit == f32::MAX {
                 importance_limit = importance[next_node] + 1.0;
-                println!("Importance limit: {}", importance_limit);
+                // println!("Importance limit: {}", importance_limit);
             }
         }
         return (independent_set, neighbour_nodes);
     }
 
-    pub fn contract_nodes(&mut self, nodes: Vec<usize>, l_counter: &mut Vec<usize>, expansion_graph: &mut CHGraph) {
+    pub fn contract_nodes(&mut self, nodes: &Vec<usize>, l_counter: &mut Vec<usize>, expansion_graph: &mut CHGraph) {
         nodes.iter().for_each(|node_id| {
             // println!("remove node {}", node_id);
             let removed_node = self.nodes.remove(node_id).expect(&format!("contraction node with id {} doesn't exist", node_id));
@@ -175,7 +179,7 @@ impl CHGraph {
                 // println!("remove {} from {}", node_id, tgt);
                 self.borrow_mut_node(*tgt).neighbours.remove(&node_id);
                 l_counter[*tgt] += 1;
-                expansion_graph.borrow_mut_node(*tgt).neighbours.remove(&node_id);      // because all neigbours will have higer level
+                expansion_graph.borrow_mut_node(*tgt).neighbours.remove(&node_id);      // because all neigbours will have higher level
             }
 
             // add insertions
@@ -193,19 +197,20 @@ impl CHGraph {
         self.nodes.iter().fold(0usize, |base,element| base + element.1.borrow().neighbours.len())
     }
 
-    pub fn edges_to_clipboard(&self, graph: &Graph) {
-        let mut the_string = "[".to_string();
+    #[allow(dead_code)]
+    pub fn nodes_and_edges_to_clipboard(&self, graph: &Graph, nodes: &Vec<usize>) {
+        let mut the_string = String::new();
+        the_string += "{\"type\": \"Feature\", \"properties\": {}, \"geometry\": {\"type\": \"MultiLineString\",\"coordinates\": [";
         the_string += &self.nodes.iter().map(|(src, node)| {
             node.borrow().neighbours.iter().map(|(tgt, _)| format!("[[{},{}],[{},{}]]", graph.nodes[*src].lon, graph.nodes[*src].lat, graph.nodes[*tgt].lon, graph.nodes[*tgt].lat)).reduce(|e,f| e + "," + &f).unwrap()
         }).reduce(|e,f| e + "," + &f).unwrap();
-        the_string += "]";
+        the_string += "]}},";
+        the_string += "{\"type\": \"Feature\", \"properties\": {}, \"geometry\": {\"type\": \"MultiPoint\",\"coordinates\": [";
+        the_string += &nodes.iter().map(
+            |node_id| format!("[{},{}]", graph.get_node(*node_id).lon, graph.get_node(*node_id).lat)
+        ).reduce(|e,f| e+","+&f).unwrap();
+        the_string += "]}}";
         cli_clipboard::set_contents(the_string.to_owned()).unwrap();
-        assert_eq!(cli_clipboard::get_contents().unwrap(), the_string);
-    }
-
-    pub fn nodes_to_clipboard(&self, graph: &Graph, nodes: &Vec<usize>) {
-        let node_string = format!("[{}]", nodes.iter().map(|node_id| format!("[{},{}]", graph.get_node(*node_id).lon, graph.get_node(*node_id).lat)).reduce(|e,f| e+","+&f).unwrap());
-        cli_clipboard::set_contents(node_string.to_owned()).unwrap();
     }
 }
 
@@ -214,10 +219,11 @@ pub struct CHNode {
     pub neighbours: HashMap<usize, CHEdge>,
     // l: usize,
     // houcount_sum: usize,
-    insertions: Insertions
+    insertions: Insertions,
+    pub coordinades: Coordinates
 }
 
 type Insertions = Vec<(usize, usize, CHEdge)>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CHEdge {pub hopcount: usize, pub dist: u32}
