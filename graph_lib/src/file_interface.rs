@@ -42,11 +42,13 @@ fn import_graph_from_bin_file(filepath: &str) -> Result<Graph, Box<bincode::Erro
     let decoded: Result<(Vec<Node>, Vec<Edge>), Box<bincode::ErrorKind>> = bincode::deserialize_from(reader);
     match decoded {
         Ok((nodes, edges)) => {
-        let mut offsets = vec![0usize; nodes.len() + 1];
+            let mut offsets = vec![0usize; nodes.len() + 1];
             let mut last_node = edges[0].src;
             for (i, edge) in edges.iter().enumerate() {
                 if last_node != edge.src {
-                    offsets[edge.src] = i;
+                    for node in (last_node+1)..(edge.src+1) {       // in case there is a node with 0 edges
+                        offsets[node] = i;
+                    }
                     last_node = edge.src;
                 }
             }
