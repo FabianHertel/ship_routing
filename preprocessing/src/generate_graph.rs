@@ -243,7 +243,6 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
         }
     }
 
-    print!("Connected lat colomns: ");
     for i in 0..360 {
         for j in 0..180 {
             if graph_grid[i][j].len() >= 1 {
@@ -251,21 +250,23 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
                 let mut distance_ne = max_distance;
                 let mut closest_se = 0;
                 let mut distance_se = max_distance;
-                let mut temp_nodes: Vec<Node> = Vec::new();
+                let mut possible_neighbours: Vec<Node> = Vec::new();
                 let mut distance_to_node;
 
-                temp_nodes.extend(&graph_grid[i][j]);
-                temp_nodes.extend(
-                    &graph_grid[(i + 1).rem_euclid(360)][((j as i32) - 1).rem_euclid(180) as usize],
-                );
-                temp_nodes.extend(&graph_grid[(i + 1).rem_euclid(360)][(j).rem_euclid(180)]);
-                temp_nodes.extend(&graph_grid[(i + 1).rem_euclid(360)][(j + 1).rem_euclid(180)]);
-                temp_nodes
-                    .extend(&graph_grid[(i).rem_euclid(360)][((j as i32) - 1).rem_euclid(180) as usize]);
-                temp_nodes.extend(&graph_grid[(i).rem_euclid(360)][(j + 1).rem_euclid(180)]);
+                possible_neighbours.extend(&graph_grid[i][j]);
+                possible_neighbours.extend(&graph_grid[(i + 1) % 360][j]);
+                
+                if j > 0 {
+                    possible_neighbours.extend(&graph_grid[i][j - 1]);
+                    possible_neighbours.extend(&graph_grid[(i + 1) % 360][j - 1]);
+                }
+                if j < 179 {
+                    possible_neighbours.extend(&graph_grid[i][j + 1]);
+                    possible_neighbours.extend(&graph_grid[(i + 1) % 360][j + 1]);
+                }
 
                 for k in &graph_grid[i][j] {
-                    for l in &temp_nodes {
+                    for l in &possible_neighbours {
                         if k.id != l.id {
                             distance_to_node = k.distance_to(&Coordinates(l.lon, l.lat)).ceil() as u32;
                             if distance_to_node < max_distance {
@@ -286,7 +287,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
                             }
                         }
                     }
-                    //create Edge for ne
+                    //create Edge for north east
                     if distance_ne < max_distance {
                         edges.push(Edge {
                             src: k.id,
@@ -300,7 +301,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
                         });
                     }
 
-                    //Create Edge for se
+                    //Create Edge for south east
                     if distance_se < max_distance {
                         edges.push(Edge {
                             src: k.id,

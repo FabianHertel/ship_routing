@@ -1,17 +1,18 @@
-use std::collections::HashSet;
 use std::error::Error;
 use std::time::SystemTime;
-use graph_lib::{Coordinates, Graph, Node, file_interface::{print_graph_to_file, import_graph_from_file}};
+use graph_lib::file_interface::{print_graph_to_file, import_graph_from_file};
 use regex::Regex;
 
 mod import_pbf;
 mod generate_graph;
 mod island;
 mod test_polygon_test;
+mod tools;
 
 use crate::import_pbf::{import_pbf, print_geojson};
 use crate::generate_graph::{generate_graph, read_geojsons};
 use crate::test_polygon_test::static_polygon_tests;
+use crate::tools::extract_black_sea;
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -21,8 +22,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     match command.to_str() {
         Some("import") => {
-            let pbf_file = param_to_string(2, "planet.osm.pbf", Some(Regex::new(r"osm.pbf$")))?;
-            let export_prefix = param_to_string(3, "complete", None)?;
+            let pbf_file = param_to_string(2, Some("planet.osm.pbf"), Some(Regex::new(r"osm.pbf$")))?;
+            let export_prefix = param_to_string(3, Some("complete"), None)?;
     
             let now = SystemTime::now();
             println!("Importing pbf file...");
@@ -30,8 +31,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("Import completed, overall time: {} sek", now.elapsed()?.as_secs());
         }
         Some("generate") => {
-            let filename_out = param_to_string(2, "graph", None)?;
-            let import_prefix = param_to_string(3, "complete", None)?;
+            let filename_out = param_to_string(2, Some("graph"), None)?;
+            let import_prefix = param_to_string(3, Some("complete"), None)?;
             
             let now = SystemTime::now();
             println!("Graph generation ...");
@@ -41,7 +42,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Some("transform") => {      // for developement
             let import_prefix = std::env::args_os().nth(2).ok_or("specify an import prefix")?;
             let export_prefix = std::env::args_os().nth(3).ok_or("specify an export prefix")?;
-            let reduce = param_to_string(4, "complete", Some(Regex::new(r"true|false|f$")))?.trim() == "true";
+            let reduce = param_to_string(4, Some("complete"), Some(Regex::new(r"true|false|f$")))?.trim() == "true";
 
             let now = SystemTime::now();
             println!("Transformation ...");
@@ -49,7 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("Transformation completed, overall time: {} sek", now.elapsed()?.as_secs());
         }
         Some("bin_file") => {      // for developement
-            let filename = param_to_string(2, "graph", None)?;
+            let filename = param_to_string(2, Some("graph"), None)?;
 
             let now = SystemTime::now();
             println!("Reading ...");
@@ -60,13 +61,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         Some("black_sea") => {
             println!("Importing fmi file...");
-            let graph = import_graph_from_file("graph-4mio-complete-u32").expect("Error importing Graph");
-            let in_black_sea = Coordinates(31.80666484258255, 44.0467677172621);
-            let node_in_black_sea = graph.closest_node(&in_black_sea);
-            sub_graph_connected(&graph, node_in_black_sea);
+            let filename = param_to_string(2, Some("graph"), None)?;
+            let graph = import_graph_from_file(&filename).expect("Error importing Graph");
+            extract_black_sea(&graph);
         }
         Some("test") => {       // for developement
-            let import_prefix = param_to_string(2, "reduced", None)?;
+            let import_prefix = param_to_string(2, Some("reduced"), None)?;
             static_polygon_tests(&import_prefix);
         }
         Some(command) => println!("Command {} not known. Please specify one of {}", command, COMMANDS),
@@ -76,28 +76,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn sub_graph_connected(graph: &Graph, node_in_black_sea: &Node) {
-    let mut nodes_to_check: Vec<usize> = graph.get_outgoing_edges(node_in_black_sea.id).to_vec().iter().map(|e| e.tgt).collect();
-    let mut found_nodes: HashSet<usize> = nodes_to_check.clone().into_iter().collect();
 
-    while nodes_to_check.len() > 1 {
-        let node = nodes_to_check.pop().unwrap();
-        for edge in graph.get_outgoing_edges(node) {
-            if !found_nodes.contains(&edge.tgt) {
-                found_nodes.insert(edge.tgt);
-                nodes_to_check.push(edge.tgt);
-            }
-        }
-    }
-
-    let mut black_sea = graph.subgraph(found_nodes.into_iter().collect());
-    println!("nodes: {}, edges: {}", black_sea.n_nodes(), black_sea.edges.len());
-    print_graph_to_file(&black_sea.nodes, &mut black_sea.edges, "black_sea");
-}
-
-fn param_to_string(nth: usize, alt_str: &str, regex: Option<Result<regex::Regex, regex::Error>>) -> Result<String, String> {
-    match std::env::args_os().nth(nth) {
-        Some(osstring) => {
+fn param_to_string(nth: usize, alt_str: Option<&str>, regex: Option<Result<regex::Regex, regex::Error>>) -> Result<String, String> {
+    match (std::env::args_os().nth(nth), alt_str) {
+        (Some(osstring), _) => {
             let param = osstring.into_string().unwrap();
             match regex {
                 Some(regex) => {
@@ -108,7 +90,8 @@ fn param_to_string(nth: usize, alt_str: &str, regex: Option<Result<regex::Regex,
             }
             return Ok(param)
         },
-        None => return Ok(String::from(alt_str))
+        (None, Some(alt_str)) => return Ok(String::from(alt_str)),
+        (None, None) => return Err(format!("No {} parameter existing, but expected", nth))
     };
 }
 
