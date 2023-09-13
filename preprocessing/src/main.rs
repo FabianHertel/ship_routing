@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     match command.to_str() {
         Some("import") => {
-            let pbf_file = param_to_string(2, Some("planet.osm.pbf"), Some(Regex::new(r"osm.pbf$")))?;
+            let pbf_file = "data/".to_string() + &param_to_string(2, Some("planet.osm.pbf"), Some(Regex::new(r"osm.pbf$")))?;
             let export_prefix = param_to_string(3, Some("complete"), None)?;
     
             let now = SystemTime::now();
