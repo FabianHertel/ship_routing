@@ -8,7 +8,7 @@ mod ch;
 mod test_routing;
 mod ws_a_star;
 
-use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file, distance_between};
+use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file };
 use test_routing::test_samples;
 
 use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{ch_precalculations, run_ch}};
