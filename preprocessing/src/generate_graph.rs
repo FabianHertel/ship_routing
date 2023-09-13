@@ -31,12 +31,12 @@ pub fn generate_graph(filename_out: &str, import_prefix: &str) -> Result<(), Box
 
     println!("4/5: Connecting graph ...");
     let now = SystemTime::now();
-    let (mut nodes, mut edges) = connect_graph(graph_grid);
+    let (nodes, edges) = connect_graph(graph_grid);
     println!("4/5 Finished graph creating {} edges in {} min", edges.len(), now.elapsed().unwrap().as_secs() as f32 / 60.0);
 
     println!("5/5: Writing graph into {} ...", filename_out);
     let now = SystemTime::now();
-    print_graph_to_file(&mut nodes, &mut edges, filename_out);
+    print_graph_to_file(&nodes, &edges, filename_out);
     println!("5/5 Finished file write {} sek", now.elapsed().unwrap().as_secs());
     Ok(())
 }
@@ -322,6 +322,9 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
         // print!("{}-{},", i, i+1)
         print!("\rConnecting... {}/360 latitudes", i);
     }
+    
+    edges.sort_by(|a, b| a.src.cmp(&b.src));
+
     // println!("");
     return (points, edges);
 }

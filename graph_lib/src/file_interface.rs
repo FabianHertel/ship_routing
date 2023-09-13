@@ -14,11 +14,14 @@ pub fn import_graph_from_file(filename: &str) -> Result<Graph, std::io::Error> {
     }
 }
 
-pub fn print_graph_to_file(nodes: &Vec<Node>, mut edges: &mut Vec<Edge>, filename: &str) {
+/**
+ * expects edges sorted
+ */
+pub fn print_graph_to_file(nodes: &Vec<Node>, edges: &Vec<Edge>, filename: &str) {
     let path = "data/graph/".to_owned() + filename;
 
     print_bin_graph(nodes, edges, &(path.to_owned() + ".bin"));
-    print_fmi_graph(nodes, &mut edges, &(path.to_owned() + ".fmi"));
+    print_fmi_graph(nodes, edges, &(path.to_owned() + ".fmi"));
 }
 
 /**
@@ -46,6 +49,9 @@ fn import_graph_from_bin_file(filepath: &str) -> Result<Graph, Box<bincode::Erro
             let mut last_node = edges[0].src;
             for (i, edge) in edges.iter().enumerate() {
                 if last_node != edge.src {
+                    if last_node < edge.src -1 {
+                        println!("Jump of {}", edge.src - last_node);
+                    }
                     for node in (last_node+1)..(edge.src+1) {       // in case there is a node with 0 edges
                         offsets[node] = i;
                     }
@@ -133,10 +139,8 @@ fn import_graph_from_fmi_file(filepath :&str) -> Result<Graph, std::io::Error> {
 }
 
 
-fn print_fmi_graph(points: &Vec<Node>, edges: &mut Vec<Edge>, filepath: &str) {
+fn print_fmi_graph(points: &Vec<Node>, edges: &Vec<Edge>, filepath: &str) {
     let mut data_string = String::new();
-    edges.sort_by(|a, b| a.src.cmp(&b.src));
-
     data_string = data_string + &points.len().to_string() + "\n";
     data_string = data_string + &edges.len().to_string() + "\n";
 
