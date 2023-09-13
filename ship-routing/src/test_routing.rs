@@ -72,13 +72,12 @@ fn run_routing(graph: &Graph, ch_graph: &Graph, route: Route) {
     println!("DI\t{}\t{}", dijkstra_result.calculation_time, dijkstra_result.visited_nodes);
     let a_star_result = run_a_star(src_node, tgt_node, graph);
     println!("A*\t{}\t{}", a_star_result.calculation_time, a_star_result.visited_nodes);
+    assert_eq_routings(&dijkstra_result, &a_star_result);
     let bidirectional_dijkstra = run_bidirectional_dijkstra(src_node, tgt_node, graph, true);
     println!("BD\t{}\t{}", bidirectional_dijkstra.calculation_time, bidirectional_dijkstra.visited_nodes);
+    assert_eq_routings(&dijkstra_result, &bidirectional_dijkstra);
     let ch_result = run_ch(src_node, tgt_node, ch_graph);
     println!("CH\t{}\t{}", ch_result.calculation_time, ch_result.visited_nodes);
-
-    assert_eq_routings(&dijkstra_result, &a_star_result);
-    assert_eq_routings(&dijkstra_result, &bidirectional_dijkstra);
     assert_eq_routings(&dijkstra_result, &ch_result);
 }
 

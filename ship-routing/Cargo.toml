@@ -19,6 +19,7 @@ rayon = "1.7.0"     # parallel computing
 rand = "0.8.5"
 log = "0.4.18"
 cli-clipboard = "0.4.0"
+bincode = "1.3.3"
 
 
 [features]

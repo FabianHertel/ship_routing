@@ -3024,6 +3024,7 @@ dependencies = [
 name = "ship-routing"
 version = "0.0.0"
 dependencies = [
+ "bincode",
  "cli-clipboard",
  "graph_lib",
  "log",
