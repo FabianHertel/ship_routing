@@ -4,6 +4,9 @@ use graph_lib::{ShortestPathResult, Graph, Node};
 
 /// Run a bidirectional Dijkstra from the source coodinates to the target coordinates
 pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Graph, symmetric: bool) -> ShortestPathResult {
+    if src_node.id == tgt_node.id {
+        return ShortestPathResult {calculation_time: 0, distance: 0, path: Some(vec![src_node.clone()]), visited_nodes: 0};
+    }
 
     let now = SystemTime::now();
     
