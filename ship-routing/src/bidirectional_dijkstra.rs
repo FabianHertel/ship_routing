@@ -35,10 +35,12 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
                 priority_queue_forward.insert_or_update(edge.tgt, &dijkstra_forward.dists);
             }
             
-            if dijkstra_backward.visited[edge.tgt] && edge_tgt_dist + dijkstra_backward.dists[edge.tgt] < result_dist {
+            if dijkstra_backward.dists[edge.tgt] != u32::MAX && edge_tgt_dist + dijkstra_backward.dists[edge.tgt] < result_dist {
                 result_dist = edge_tgt_dist + dijkstra_backward.dists[edge.tgt];
                 node_id_middle = Some(edge.tgt);
             }
+
+            // println!("forward: {}, {}, {}, {}, {}", edge.src, forward_dist, edge.tgt, edge.dist, result_dist);
         }
 
         for edge in graph.get_outgoing_edges(node_id_backward) {
@@ -49,10 +51,11 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
                 priority_queue_backward.insert_or_update(edge.tgt, &dijkstra_backward.dists);
             }
             
-            if dijkstra_forward.visited[edge.tgt] && edge_tgt_dist + dijkstra_forward.dists[edge.tgt] < result_dist {
+            if dijkstra_forward.dists[edge.tgt] != u32::MAX && edge_tgt_dist + dijkstra_forward.dists[edge.tgt] < result_dist {
                 result_dist = edge_tgt_dist + dijkstra_forward.dists[edge.tgt];
                 node_id_middle = Some(edge.tgt);
             }
+            // println!("backward: {}, {}, {}, {}, {}", edge.src, backward_dist, edge.tgt, edge.dist, result_dist);
         }
 
         visited_nodes += 2;
