@@ -1,9 +1,10 @@
-use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}, fs::File, io::Write};
+use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}, fs::File, io::{Write, self}};
 use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_graph_to_file, Coordinates};
 use cli_clipboard;
 use crate::{binary_minheap::BinaryMinHeap, ws_a_star::ws_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra};
 
 pub fn ch_precalculations(graph: &Graph, filename_out: &str) {
+    println!("Convert graphs");
     let mut contracting_graph = CHGraph::from_graph(graph);
     let mut final_ch_graph = CHGraph::from_graph(graph);       // will be the upwareded DAG
 
@@ -20,7 +21,7 @@ pub fn ch_precalculations(graph: &Graph, filename_out: &str) {
     let now = SystemTime::now();
     let mut last_percent = 0.99;
     while contracting_graph.n_nodes() as f32 > graph.n_nodes() as f32 * 0.01 {
-        contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, graph.n_nodes(), &mut ws_object);
+        contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object);
 
         let (independent_set, affected_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
         update_nodes = affected_nodes;
@@ -79,7 +80,7 @@ impl CHGraph {
     pub fn from_graph(graph: &Graph) -> CHGraph {
         let mut new_graph = CHGraph::new();
         for node in &graph.nodes {
-            new_graph.nodes.insert(node.id, RefCell::new(CHNode { 
+            new_graph.nodes.insert(node.id, RefCell::new(CHNode {
                 neighbours: HashMap::new(),
                 id: node.id,
                 // l: 0,
@@ -122,10 +123,11 @@ impl CHGraph {
 
     pub fn update_importance_of(
         &self, importance: &mut Vec<f32>, update_nodes: &HashSet<usize>, priority_queue: &mut BinaryMinHeap,
-        l_counter: &Vec<usize>, max_id: usize, ws_object: &mut Vec<HashMap<usize, u32>>
+        l_counter: &Vec<usize>, ws_object: &mut Vec<HashMap<usize, u32>>
     ) {
         let now = SystemTime::now();
         let mut witness_time = 0.0;
+        let mut counter = 0;
         for node_id in update_nodes {       // TODO: parallel
             let mut hopcount_sum_insert = 0;
             let mut hopcount_sum = 0f32;
@@ -145,7 +147,7 @@ impl CHGraph {
                         let n1 = neighbour_ids[i];
                         let n2 = neighbour_ids[j];
                         let ws_now = SystemTime::now();
-                        let is_shortcut_needed = self.is_shortcut_needed(*n1, *n2, edge_sum, *node_id, max_id);
+                        let is_shortcut_needed = self.is_shortcut_needed(*n1, *n2, edge_sum, *node_id);
                         witness_time += ws_now.elapsed().unwrap().as_secs_f32();
                         if is_shortcut_needed {
                             let hopcount = i_edge.hopcount + j_edge.hopcount;
@@ -159,19 +161,24 @@ impl CHGraph {
             } {
                 self.borrow_mut_node(*node_id).insertions = insert_edges;
             }
+            counter += 1;
+            if counter % 1000 == 0 {
+                print!("\rUpdated importance of {} out of {} nodes", counter, update_nodes.len());
+                let _ = io::stdout().flush();
+            }
         }
-        print!("Updated importance of {} nodes in {} ms, witness search took: {} ms; ",
+        print!("\rUpdated importance of {} nodes in {} ms, witness search took: {} ms; ",
             update_nodes.len(), now.elapsed().unwrap().as_millis(), (witness_time * 1000.0) as u64
         );
     }
 
     #[inline]
-    fn is_shortcut_needed(&self, n1: usize, n2: usize, edge_sum: u32, btw_node: usize, max_id: usize) -> bool {
+    fn is_shortcut_needed(&self, n1: usize, n2: usize, edge_sum: u32, btw_node: usize) -> bool {
         if self.borrow_node(n1).neighbours.contains_key(&n2) {
             return false;
         }
         let witness_search = ws_a_star(
-            n1, n2, self, edge_sum, btw_node, max_id
+            n1, n2, self, edge_sum, btw_node
         );
         return witness_search;
     }

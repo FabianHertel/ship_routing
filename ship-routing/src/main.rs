@@ -4,6 +4,7 @@ mod dijkstra;
 mod a_star;
 mod bidirectional_dijkstra;
 mod binary_minheap;
+mod binary_minheap_map;
 mod ch;
 mod test_routing;
 mod ws_a_star;
