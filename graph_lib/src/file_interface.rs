@@ -49,9 +49,6 @@ fn import_graph_from_bin_file(filepath: &str) -> Result<Graph, Box<bincode::Erro
             let mut last_node = edges[0].src;
             for (i, edge) in edges.iter().enumerate() {
                 if last_node != edge.src {
-                    if last_node < edge.src -1 {
-                        println!("Jump of {}", edge.src - last_node);
-                    }
                     for node in (last_node+1)..(edge.src+1) {       // in case there is a node with 0 edges
                         offsets[node] = i;
                     }

@@ -1,8 +1,8 @@
-use std::{time::SystemTime, fs::{self}, error::Error, io::{Write, stdout}};
+use std::{time::SystemTime, fs::{self}, error::Error, io::{Write, stdout, self}, collections::HashMap};
 use rayon::prelude::*;
 use rand::Rng;
 
-use graph_lib::{Coordinates, Node, Edge, file_interface::print_graph_to_file};
+use graph_lib::{Coordinates, Node, Edge, file_interface::print_graph_to_file, distance_between};
 
 use crate::island::{Island, GRID_DIVISIONS, grid_cell_of_coordinate, GridCell};
 
@@ -204,13 +204,9 @@ fn generate_random_points_in_ocean(island_grid: &Vec<Vec<GridCell>>, number_of_p
 
         if norm <= 1.0 {
             if !point_on_land_test(lon, lat, island_grid) {
-                new_node = Node {
-                    id: 0,
-                    lat: lat,
-                    lon: lon,
-                };
+                new_node = Node { id: 0, lat, lon };
 
-                grid[(lon.round() + 180.0 - 1.0) as usize][(lat.round() + 90.0 - 1.0) as usize]
+                grid[(lon + 179.99).floor() as usize][(lat + 89.99).floor() as usize]
                     .push(new_node);
                 counter = counter + 1;
                 if counter % 1000 == 0 {
@@ -228,7 +224,8 @@ fn generate_random_points_in_ocean(island_grid: &Vec<Vec<GridCell>>, number_of_p
 
 fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) {
     let mut points: Vec<Node> = Vec::new();
-    let mut edges: Vec<Edge> = Vec::new();
+    let mut edges_set = HashMap::new();
+    let mut final_edges: Vec<Edge> = Vec::new();
     let mut id = 0;
     let max_distance = 30000;
 
@@ -245,88 +242,106 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
 
     for i in 0..360 {
         for j in 0..180 {
-            if graph_grid[i][j].len() >= 1 {
-                let mut closest_ne = 0;
-                let mut distance_ne = max_distance;
-                let mut closest_se = 0;
-                let mut distance_se = max_distance;
-                let mut possible_neighbours: Vec<Node> = Vec::new();
-                let mut distance_to_node;
-
-                possible_neighbours.extend(&graph_grid[i][j]);
-                possible_neighbours.extend(&graph_grid[(i + 1) % 360][j]);
+            for k in &graph_grid[i][j] {
+                // calclate how many grids to the right/left shold be considered
+                let distance_to_right_end = k.distance_to(&Coordinates(i as f32 - 179.0, k.lat));
+                let distance_to_left_end = k.distance_to(&Coordinates(i as f32 - 180.0, k.lat));
+                let distance_to_north_end = k.distance_to(&Coordinates(k.lon, j as f32 - 90.0));
+                let distance_to_south_end = k.distance_to(&Coordinates(k.lon, j as f32 - 89.0));
+                let grid_with = distance_between(i as f32 - 179.0, k.lat, i as f32 - 180.0, k.lat);
                 
-                if j > 0 {
-                    possible_neighbours.extend(&graph_grid[i][j - 1]);
-                    possible_neighbours.extend(&graph_grid[(i + 1) % 360][j - 1]);
+                let grids_right = ((max_distance as f32 - distance_to_right_end) / grid_with).ceil() as usize; 
+                let grids_left = ((max_distance as f32 - distance_to_left_end) / grid_with).ceil() as usize;
+                let check_north = distance_to_north_end < max_distance as f32 && j > 0;
+                let check_south = distance_to_south_end < max_distance as f32 && j < 179;
+                
+                // add all possible grids to a vector
+                let mut possible_neighbours: Vec<Node> = Vec::new();
+                possible_neighbours.extend(&graph_grid[i][j]);
+                if check_north { possible_neighbours.extend(&graph_grid[i][j - 1]) }
+                if check_south { possible_neighbours.extend(&graph_grid[i][j + 1]); }
+
+                for r in 1..(grids_right + 1) {
+                    possible_neighbours.extend(&graph_grid[(i + r).rem_euclid(360)][j]);
+                    if check_north { possible_neighbours.extend(&graph_grid[(i + r).rem_euclid(360)][j - 1]) }    // if grid is not the most northern
+                    if check_south { possible_neighbours.extend(&graph_grid[(i + r).rem_euclid(360)][j + 1]); } // if grid is not the most southern
+                    
                 }
-                if j < 179 {
-                    possible_neighbours.extend(&graph_grid[i][j + 1]);
-                    possible_neighbours.extend(&graph_grid[(i + 1) % 360][j + 1]);
+                for l in 1..(grids_left + 1) {
+                    possible_neighbours.extend(&graph_grid[(360 + i - l).rem_euclid(360)][j]);
+                    if check_north { possible_neighbours.extend(&graph_grid[(360 + i - l).rem_euclid(360)][j - 1]) }  // if grid is not the most northern
+                    if check_south { possible_neighbours.extend(&graph_grid[(360 + i - l).rem_euclid(360)][j + 1]); }   // if grid is not the most southern
+                    // println!("left: {}, {}, {}, {}, {}", grids_right, grids_left, distance_to_right_end, distance_to_left_end, grid_with);
                 }
 
-                for k in &graph_grid[i][j] {
-                    for l in &possible_neighbours {
-                        if k.id != l.id {
-                            distance_to_node = k.distance_to(&Coordinates(l.lon, l.lat)).ceil() as u32;
-                            if distance_to_node < max_distance {
-                                //NORTH EAST
-                                if k.lon < l.lon && k.lat < l.lat {
-                                    if distance_to_node < distance_ne {
-                                        distance_ne = distance_to_node;
-                                        closest_ne = l.id;
-                                    }
+                let mut neighbour_ne = (None, max_distance);
+                let mut neighbour_se = (None, max_distance);
+                let mut neighbour_sw = (None, max_distance);
+                let mut neighbour_nw = (None, max_distance);
+
+                // iterate over possible grids
+                for l in &possible_neighbours {
+                    if k.id != l.id {
+                        let distance_to_node = k.distance_to_node(l).ceil() as u32;
+                        if distance_to_node < max_distance {
+                            if k.lon < l.lon && k.lat < l.lat {             //NORTH EAST
+                                if distance_to_node < neighbour_ne.1 {
+                                    neighbour_ne = (Some(l.id), distance_to_node);
                                 }
-                                // SOUTH EAST
-                                else if k.lon < l.lon && k.lat > l.lat {
-                                    if distance_to_node < distance_se {
-                                        distance_se = distance_to_node;
-                                        closest_se = l.id;
-                                    }
+                            } else if k.lon < l.lon && k.lat > l.lat {      // SOUTH EAST
+                                if distance_to_node < neighbour_se.1 {
+                                    neighbour_se = (Some(l.id), distance_to_node);
+                                }
+                            } else if k.lon > l.lon && k.lat > l.lat {      // SOUTH WEST
+                                if distance_to_node < neighbour_sw.1 {
+                                    neighbour_sw = (Some(l.id), distance_to_node);
+                                }
+                            } else if k.lon > l.lon && k.lat < l.lat {      // NORTH WEST
+                                if distance_to_node < neighbour_nw.1 {
+                                    neighbour_nw = (Some(l.id), distance_to_node);
                                 }
                             }
                         }
                     }
-                    //create Edge for north east
-                    if distance_ne < max_distance {
-                        edges.push(Edge {
-                            src: k.id,
-                            tgt: closest_ne,
-                            dist: distance_ne,
-                        });
-                        edges.push(Edge {
-                            src: closest_ne,
-                            tgt: k.id,
-                            dist: distance_ne,
-                        });
-                    }
+                }
 
-                    //Create Edge for south east
-                    if distance_se < max_distance {
-                        edges.push(Edge {
-                            src: k.id,
-                            tgt: closest_se,
-                            dist: distance_se,
-                        });
-                        edges.push(Edge {
-                            src: closest_se,
-                            tgt: k.id,
-                            dist: distance_se,
-                        });
-                    }
-                    distance_ne = u32::MAX;
-                    distance_se = u32::MAX;
+                if neighbour_ne.0.is_some() {       //create Edge for north east
+                    edges_set.insert((k.id, neighbour_ne.0.unwrap()), neighbour_ne.1);
+                    edges_set.insert((neighbour_ne.0.unwrap(), k.id), neighbour_ne.1);
+                }
+
+                if neighbour_se.0.is_some() {       //create Edge for south east
+                    edges_set.insert((k.id, neighbour_se.0.unwrap()), neighbour_se.1);
+                    edges_set.insert((neighbour_se.0.unwrap(), k.id), neighbour_se.1);
+                }
+
+                if neighbour_sw.0.is_some() {       //create Edge for south west
+                    edges_set.insert((k.id, neighbour_sw.0.unwrap()), neighbour_sw.1);
+                    edges_set.insert((neighbour_sw.0.unwrap(), k.id), neighbour_sw.1);
+                }
+
+                if neighbour_nw.0.is_some() {       //create Edge for north west
+                    edges_set.insert((k.id, neighbour_nw.0.unwrap()), neighbour_nw.1);
+                    edges_set.insert((neighbour_nw.0.unwrap(), k.id), neighbour_nw.1);
                 }
             }
         }
-        // print!("{}-{},", i, i+1)
-        print!("\rConnecting... {}/360 latitudes", i);
+        print!("\rConnecting... {}/360 latitudes", i + 1);
+        let _ = io::stdout().flush();
     }
-    
-    edges.sort_by(|a, b| a.src.cmp(&b.src));
+
+    for ((src, tgt), dist) in edges_set {
+        final_edges.push(Edge {
+            src,
+            tgt,
+            dist,
+        });
+    }
+
+    final_edges.sort_by(|a, b| a.src.cmp(&b.src));
 
     // println!("");
-    return (points, edges);
+    return (points, final_edges);
 }
 
 #[inline]
