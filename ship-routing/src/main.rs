@@ -83,8 +83,8 @@ fn main() {
             match command.to_str() {
                 Some("test") => test_samples(unsafe { &GRAPH }, unsafe { CH_GRAPH.as_ref().unwrap()}),
                 Some("ch_precalc") => unsafe {
-                    let filename = std::env::args_os().nth(2).ok_or("specify a filename").expect("specify a filename");
-                    ch_precalculations(&GRAPH, filename.to_str().unwrap());
+                    let filename_out = std::env::args_os().nth(2).ok_or("specify a filename").expect("specify a filename");
+                    ch_precalculations(&GRAPH, filename_out.to_str().unwrap());
                 },
                 _ => println!("Command not known. Exit"),
             }

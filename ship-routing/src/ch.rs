@@ -3,7 +3,7 @@ use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_gra
 use cli_clipboard;
 use crate::{binary_minheap::BinaryMinHeap, ws_a_star::ws_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra};
 
-pub fn ch_precalculations(graph: &Graph, filename: &str) {
+pub fn ch_precalculations(graph: &Graph, filename_out: &str) {
     let mut contracting_graph = CHGraph::from_graph(graph);
     let mut final_ch_graph = CHGraph::from_graph(graph);       // will be the upwareded DAG
 
@@ -25,8 +25,6 @@ pub fn ch_precalculations(graph: &Graph, filename: &str) {
         
         contracting_graph.contract_nodes(&independent_set, &mut l_counter, &mut final_ch_graph);
         println!("Contracted: graph of size {} and {} edges; final graph with {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges(), final_ch_graph.n_edges());
-        // contracting_graph.edges_to_clipboard(graph);
-        println!("{:?}", final_ch_graph.borrow_node(2858).neighbours);
         // let _ = std::io::stdin().read_line(&mut String::new());
 
         level_counter += 1;
@@ -36,8 +34,7 @@ pub fn ch_precalculations(graph: &Graph, filename: &str) {
         now.elapsed().unwrap().as_secs_f64() / 60.0, level_counter, contracting_graph.n_nodes(), final_ch_graph.n_edges());
 
     let mut final_fmi_graph = final_ch_graph.to_fmi_graph(graph);
-    println!("{:?}", final_fmi_graph.get_outgoing_edges(2858));
-    print_graph_to_file(&final_fmi_graph.nodes, &mut final_fmi_graph.edges, filename);
+    print_graph_to_file(&final_fmi_graph.nodes, &mut final_fmi_graph.edges, filename_out);
 }
 
 /// Run a Dijkstra from the source coodinates to the target coordinates
