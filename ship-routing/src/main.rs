@@ -8,7 +8,7 @@ mod ch;
 mod test_routing;
 mod ws_a_star;
 
-use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file};
+use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file, distance_between};
 use test_routing::test_samples;
 
 use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{ch_precalculations, run_ch}};
@@ -18,11 +18,11 @@ static mut GRAPH: Graph = Graph {
     edges: Vec::new(),
     offsets: Vec::new(),
 };
-static mut CH_GRAPH: Graph = Graph {
+static mut CH_GRAPH: Option<Graph> = Some(Graph {
     nodes: Vec::new(),
     edges: Vec::new(),
     offsets: Vec::new(),
-};
+});
 
 #[tauri::command]
 fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
@@ -35,9 +35,8 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
         let (src_node, tgt_node) = (GRAPH.closest_node(&src_coordinates), GRAPH.closest_node(&tgt_coordinates));
         // println!("Routing from {:?} to {:?}", src_node, tgt_node);
     
-        let ch_result = run_ch(src_node, tgt_node, &CH_GRAPH);
         let dijkstra_result = run_bidirectional_dijkstra(src_node, tgt_node, &GRAPH, true);
-
+        
         match &dijkstra_result.path {
             Some(current_path) => {
                 for i in 0..current_path.len() {
@@ -46,17 +45,22 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
             }
             None => ()
         }
-
-        match &ch_result.path {
-            Some(current_path) => {
-                for i in 0..current_path.len() {
-                    shortest_path.push([current_path[i].lat, current_path[i].lon]);
-                }
-            }
-            None => ()
-        }
         println!("Dijkstra: {}", dijkstra_result);
-        println!("CH: {}", ch_result);
+        
+        if CH_GRAPH.is_some() {
+            let ch_result = run_ch(src_node, tgt_node, CH_GRAPH.as_ref().unwrap());
+            match &ch_result.path {
+                Some(current_path) => {
+                    for i in 0..current_path.len() {
+                        shortest_path.push([current_path[i].lat, current_path[i].lon]);
+                    }
+                }
+                None => ()
+            }
+            println!("CH: {}", ch_result);
+        } else {
+            println!("No CH data found, so no CH calculation");
+        }
     }
 
 
@@ -65,10 +69,11 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
 
 fn main() {
     let command = std::env::args_os().nth(1);
+    let filename = "graph";
     println!("Import Graph");
     unsafe {
-        GRAPH = import_graph_from_file("graph").expect("Error importing Graph");
-        CH_GRAPH = import_graph_from_file("ch_graph").expect("Error importing Graph");
+        GRAPH = import_graph_from_file(filename).expect("Error importing Graph");
+        CH_GRAPH = import_graph_from_file(&("ch_".to_string() + &filename)).ok();
         // GRAPH.edges_to_clipboard();
     };
     println!("Finished importing");
@@ -76,7 +81,7 @@ fn main() {
     match command {
         Some(command) => {
             match command.to_str() {
-                Some("test") => test_samples(unsafe { &GRAPH }, unsafe { &CH_GRAPH}),
+                Some("test") => test_samples(unsafe { &GRAPH }, unsafe { CH_GRAPH.as_ref().unwrap()}),
                 Some("ch_precalc") => unsafe {
                     let filename = std::env::args_os().nth(2).ok_or("specify a filename").expect("specify a filename");
                     ch_precalculations(&GRAPH, filename.to_str().unwrap());
