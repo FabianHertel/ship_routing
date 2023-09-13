@@ -250,8 +250,8 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
                 let distance_to_south_end = k.distance_to(&Coordinates(k.lon, j as f32 - 89.0));
                 let grid_with = distance_between(i as f32 - 179.0, k.lat, i as f32 - 180.0, k.lat);
                 
-                let grids_right = ((max_distance as f32 - distance_to_right_end) / grid_with).ceil() as usize; 
-                let grids_left = ((max_distance as f32 - distance_to_left_end) / grid_with).ceil() as usize;
+                let grids_right = (((max_distance as f32 - distance_to_right_end) / grid_with).ceil() as usize).min(180); 
+                let grids_left = (((max_distance as f32 - distance_to_left_end) / grid_with).ceil() as usize).min(180);
                 let check_north = distance_to_north_end < max_distance as f32 && j > 0;
                 let check_south = distance_to_south_end < max_distance as f32 && j < 179;
                 
