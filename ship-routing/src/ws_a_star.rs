@@ -15,7 +15,7 @@ pub fn ws_a_star(src: usize, tgt: usize, ch_graph: &CHGraph, edge_sum: u32, btw_
 
     while !priority_queue.is_empty() {
         let node_id = priority_queue.pop(&heuristic_dists.g_plus_h);
-        if node_id == tgt {
+        if node_id == tgt || heuristic_dists.g_plus_h[&node_id] > edge_sum {
             break;
         } else {
             process_edges(ch_graph, node_id, &mut heuristic_dists, &mut priority_queue, &tgt_coordinates, btw_node);
