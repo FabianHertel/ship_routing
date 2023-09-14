@@ -9,20 +9,20 @@ pub fn ws_a_star(src: usize, tgt: usize, ch_graph: &CHGraph, edge_sum: u32, btw_
     
     let tgt_coordinates = ch_graph.borrow_node(tgt).coordinades;
 
-    a_star_object.0.borrow_mut().clear(src, ch_graph.borrow_node(src).coordinades.distance_to(&tgt_coordinates).floor() as u32);
+    a_star_object.0.borrow_mut().clear(src, tgt, ch_graph.borrow_node(src).coordinades.distance_to(&tgt_coordinates).floor() as u32);
     a_star_object.1.borrow_mut().clear();
     a_star_object.1.borrow_mut().push(src, &a_star_object.0.borrow().g_plus_h);
 
     while !a_star_object.1.borrow().is_empty() {
         let node_id = a_star_object.1.borrow_mut().pop(&a_star_object.0.borrow().g_plus_h);
-        if node_id == tgt || a_star_object.0.borrow().g_plus_h[&node_id] > edge_sum {
+        if node_id == tgt || a_star_object.0.borrow().g_plus_h[&node_id] > edge_sum || a_star_object.0.borrow().g_plus_h[&tgt] < edge_sum {
             break;
         } else {
             process_edges(ch_graph, node_id, a_star_object, &tgt_coordinates, btw_node);
         }
     }
 
-    return !a_star_object.0.borrow().g_plus_h.contains_key(&tgt) || a_star_object.0.borrow().g_plus_h[&tgt] > edge_sum;
+    return a_star_object.0.borrow().g_plus_h[&tgt] > edge_sum;
 }
 
 /// Process the outgoing edges of the node with id `node_id`
@@ -66,11 +66,13 @@ impl HeuristicalDistances {
         }
     }
 
-    pub fn clear(&mut self, src_id: usize, start_end_dist: u32) {
+    pub fn clear(&mut self, src_id: usize, tgt: usize, start_end_dist: u32) {
         self.heuristic.clear();
         self.g_plus_h.clear();
         self.preds.clear();
         self.heuristic.insert(src_id, start_end_dist);
+        self.heuristic.insert(tgt, 0);
         self.g_plus_h.insert(src_id, 0 + start_end_dist);
+        self.g_plus_h.insert(tgt, u32::MAX);
     }
 }

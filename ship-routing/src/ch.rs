@@ -56,6 +56,7 @@ pub fn ch_precalculations(
 ) {
     let now = SystemTime::now();
     let mut last_save = SystemTime::now();
+    let mut last_save_durance = 10;
     let a_star_object: AStartObject = (RefCell::new(HeuristicalDistances::init()), RefCell::new(BinaryMinHeapMap::with_capacity(contracting_graph.n_nodes())));
     while contracting_graph.n_nodes() as f32 > final_ch_graph.n_nodes() as f32 * 0.01 {
         contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object, &a_star_object);
@@ -67,10 +68,12 @@ pub fn ch_precalculations(
         contracting_graph.contract_nodes(&independent_set, &mut l_counter, &mut final_ch_graph);
         level_counter += 1;
 
-        if last_save.elapsed().unwrap().as_secs() > 60 {
+        if last_save.elapsed().unwrap().as_secs() > 10 * last_save_durance {
             print!("Save; ");
+            let now = SystemTime::now();
             save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &ws_object, &update_nodes, level_counter);
             last_save = SystemTime::now();
+            last_save_durance = now.elapsed().unwrap().as_secs();
         }
         let percent = (contracting_graph.n_nodes() * 100) as f32 / final_ch_graph.n_nodes() as f32;
         println!("Contracted: graph of size {:.2}% - {} n - {} e; final {} edges",
