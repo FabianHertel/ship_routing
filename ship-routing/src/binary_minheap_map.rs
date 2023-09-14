@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 /// Efficient binary min-heap to be used as Dijkstra PQ
-pub struct BinaryMinHeap {
+pub struct BinaryMinHeapMap {
     heap: Vec<usize>,
     positions: HashMap<usize, usize>,
 }
@@ -25,13 +25,18 @@ fn get_parent(index: usize) -> usize {
     }
 }
 
-impl BinaryMinHeap {
+impl BinaryMinHeapMap {
     /// Create a new `BinaryMinHeap` with given capacity
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             heap: Vec::with_capacity(capacity),
             positions: HashMap::new(),
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.heap.clear();
+        self.positions.clear();
     }
 
     /// Set key `key` at position `index`

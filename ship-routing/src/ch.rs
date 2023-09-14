@@ -1,7 +1,7 @@
 use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}, fs::File, io::{Write, self, BufReader}};
 use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_graph_to_file, Coordinates};
 use cli_clipboard;
-use crate::{binary_minheap::BinaryMinHeap, ws_a_star::ws_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra};
+use crate::{binary_minheap::BinaryMinHeap, ws_a_star::{ws_a_star, AStartObject, HeuristicalDistances}, bidirectional_dijkstra::run_bidirectional_dijkstra, binary_minheap_map::BinaryMinHeapMap};
 
 pub fn new_ch_precalculations(graph: &Graph, filename_out: &str) {
     println!("Convert graphs");
@@ -56,8 +56,9 @@ pub fn ch_precalculations(
 ) {
     let now = SystemTime::now();
     let mut last_save = SystemTime::now();
+    let mut a_star_object: AStartObject = (RefCell::new(HeuristicalDistances::init()), RefCell::new(BinaryMinHeapMap::with_capacity(contracting_graph.n_nodes())));
     while contracting_graph.n_nodes() as f32 > final_ch_graph.n_nodes() as f32 * 0.01 {
-        contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object);
+        contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object, &a_star_object);
 
         let (independent_set, affected_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
         update_nodes = affected_nodes;
@@ -161,7 +162,7 @@ impl CHGraph {
 
     pub fn update_importance_of(
         &self, importance: &mut Vec<f32>, update_nodes: &HashSet<usize>, priority_queue: &mut BinaryMinHeap,
-        l_counter: &Vec<usize>, ws_object: &mut Vec<HashMap<usize, u32>>
+        l_counter: &Vec<usize>, ws_object: &mut Vec<HashMap<usize, u32>>, a_star_object: &AStartObject
     ) {
         let now = SystemTime::now();
         let mut witness_time = 0.0;
@@ -185,7 +186,7 @@ impl CHGraph {
                         let n1 = neighbour_ids[i];
                         let n2 = neighbour_ids[j];
                         let ws_now = SystemTime::now();
-                        let is_shortcut_needed = self.is_shortcut_needed(*n1, *n2, edge_sum, *node_id);
+                        let is_shortcut_needed = self.is_shortcut_needed(*n1, *n2, edge_sum, *node_id, a_star_object);
                         witness_time += ws_now.elapsed().unwrap().as_secs_f32();
                         if is_shortcut_needed {
                             let hopcount = i_edge.hopcount + j_edge.hopcount;
@@ -211,12 +212,12 @@ impl CHGraph {
     }
 
     #[inline]
-    fn is_shortcut_needed(&self, n1: usize, n2: usize, edge_sum: u32, btw_node: usize) -> bool {
+    fn is_shortcut_needed(&self, n1: usize, n2: usize, edge_sum: u32, btw_node: usize, a_star_object: &AStartObject) -> bool {
         if self.borrow_node(n1).neighbours.contains_key(&n2) {
             return false;
         }
         let witness_search = ws_a_star(
-            n1, n2, self, edge_sum, btw_node
+            n1, n2, self, edge_sum, btw_node, a_star_object
         );
         return witness_search;
     }

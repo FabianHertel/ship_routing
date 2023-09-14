@@ -72,11 +72,11 @@ fn main() {
     let command = std::env::args_os().nth(1);
     let filename = param_to_string(2, Some("graph")).expect("Plese specify filename");
     println!("Import Graph");
-    unsafe {
+    if command.is_some().to_string().as_str() != "continue_ch_precalc" { unsafe {
         GRAPH = import_graph_from_file(&filename).expect("Error importing Graph");
         CH_GRAPH = import_graph_from_file(&("ch_".to_string() + &filename)).ok();
         // GRAPH.edges_to_clipboard();
-    };
+    }};
     println!("Finished importing");
 
     match command {
@@ -87,6 +87,11 @@ fn main() {
                     new_ch_precalculations(&GRAPH, &("ch_".to_string() + &filename));
                 },
                 Some("continue_ch_precalc") => continue_ch_precalculations(&("ch_".to_string() + &filename)),
+                Some("run") => {tauri::Builder::default()
+                    .invoke_handler(tauri::generate_handler![route])
+                    .run(tauri::generate_context!())
+                    .expect("error while running tauri application");
+                },
                 _ => println!("Command not known. Exit"),
             }
         },
