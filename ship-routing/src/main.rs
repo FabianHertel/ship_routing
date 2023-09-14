@@ -84,8 +84,8 @@ fn main() {
             match command.to_str() {
                 Some("test") => test_samples(unsafe { &GRAPH }, unsafe { CH_GRAPH.as_ref().unwrap()}),
                 Some("ch_precalc") => unsafe {
-                    let filename_out = std::env::args_os().nth(2).ok_or("specify a filename").expect("specify a filename");
-                    ch_precalculations(&GRAPH, filename_out.to_str().unwrap());
+                    let filename_out = param_to_string(2, Some("ch_graph")).expect("Plese specify filename");
+                    ch_precalculations(&GRAPH, filename_out.as_str());
                 },
                 _ => println!("Command not known. Exit"),
             }
@@ -97,4 +97,15 @@ fn main() {
                 .expect("error while running tauri application");
         },
     }
+}
+
+fn param_to_string(nth: usize, alt_str: Option<&str>) -> Result<String, String> {
+    match (std::env::args_os().nth(nth), alt_str) {
+        (Some(osstring), _) => {
+            let param = osstring.into_string().unwrap();
+            return Ok(param)
+        },
+        (None, Some(alt_str)) => return Ok(String::from(alt_str)),
+        (None, None) => return Err(format!("No {} parameter existing, but expected", nth))
+    };
 }
