@@ -58,23 +58,26 @@ pub fn ch_precalculations(
     let mut last_save = SystemTime::now();
     let mut last_save_durance = 10;
     let a_star_object: AStartObject = (RefCell::new(HeuristicalDistances::init()), RefCell::new(BinaryMinHeapMap::with_capacity(contracting_graph.n_nodes())));
+    let mut independent_set: Vec<usize> = contracting_graph.nodes.iter().map(|e| *e.0).collect();
     while contracting_graph.n_nodes() as f32 > final_ch_graph.n_nodes() as f32 * 0.01 {
-        contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object, &a_star_object);
+        contracting_graph.update_importance_of(
+            &mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object, &a_star_object, HashSet::from_iter(independent_set.into_iter())
+        );
 
-        let (independent_set, affected_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
-        update_nodes = affected_nodes;
+        (independent_set, update_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
         // contracting_graph.nodes_and_edges_to_clipboard(graph, &independent_set);
         
         contracting_graph.contract_nodes(&independent_set, &mut l_counter, &mut final_ch_graph);
         level_counter += 1;
 
         if last_save.elapsed().unwrap().as_secs() > 10 * last_save_durance {
-            print!("Save; ");
             let now = SystemTime::now();
             save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &ws_object, &update_nodes, level_counter);
             last_save = SystemTime::now();
             last_save_durance = now.elapsed().unwrap().as_secs();
+            print!("Saved, next in {} sec; ", 10 * last_save_durance);
         }
+
         let percent = (contracting_graph.n_nodes() * 100) as f32 / final_ch_graph.n_nodes() as f32;
         println!("Contracted: graph of size {:.2}% - {} n - {} e; final {} edges",
             percent, contracting_graph.n_nodes(), contracting_graph.n_edges(), final_ch_graph.n_edges()
@@ -165,44 +168,55 @@ impl CHGraph {
 
     pub fn update_importance_of(
         &self, importance: &mut Vec<f32>, update_nodes: &HashSet<usize>, priority_queue: &mut BinaryMinHeap,
-        l_counter: &Vec<usize>, ws_object: &mut Vec<HashMap<usize, u32>>, a_star_object: &AStartObject
+        l_counter: &Vec<usize>, ws_object: &mut Vec<HashMap<usize, u32>>, a_star_object: &AStartObject,
+        removed_nodes: HashSet<usize>
     ) {
         let now = SystemTime::now();
         let mut witness_time = 0.0;
         let mut counter = 0;
         for node_id in update_nodes {       // TODO: parallel
-            let mut hopcount_sum_insert = 0;
             let mut hopcount_sum = 0f32;
-            let mut insert_edges: Vec<(usize, usize, CHEdge)> = vec![];
+            let mut new_insertions: Vec<(usize, usize, CHEdge)> = vec![];
             {
-                let node = self.borrow_node(*node_id);
-                let neighbours = &node.neighbours;
+                self.borrow_mut_node(*node_id).insertions.retain(
+                    |(src, tgt, _)| !removed_nodes.contains(src) && !removed_nodes.contains(tgt)
+                );
+                let neighbours = &self.borrow_node(*node_id).neighbours;
                 let neighbour_ids: Vec<&usize> = neighbours.keys().collect();
+                let new_neighbour_ids: Vec<&usize> = neighbour_ids.iter().filter(|node_id| update_nodes.contains(&node_id)).map(|e| *e).collect();
 
                 hopcount_sum += neighbours.iter().fold(0.0, |base, e| base + e.1.hopcount as f32);
 
-                for i in 0..neighbour_ids.len() {
-                    for j in (i+1)..neighbour_ids.len() {
-                        let i_edge = neighbours.get(neighbour_ids[i]).unwrap();
-                        let j_edge = neighbours.get(neighbour_ids[j]).unwrap();
-                        let edge_sum =  i_edge.dist + j_edge.dist;
-                        let n1 = neighbour_ids[i];
-                        let n2 = neighbour_ids[j];
-                        let ws_now = SystemTime::now();
-                        let is_shortcut_needed = self.is_shortcut_needed(*n1, *n2, edge_sum, *node_id, a_star_object);
-                        witness_time += ws_now.elapsed().unwrap().as_secs_f32();
-                        if is_shortcut_needed {
-                            let hopcount = i_edge.hopcount + j_edge.hopcount;
-                            insert_edges.push((*neighbour_ids[i], *neighbour_ids[j], CHEdge {dist: edge_sum, hopcount}));
-                            hopcount_sum_insert += hopcount;
+                for new_neigbour in &new_neighbour_ids {
+                    for neighbour in &neighbour_ids {
+                        if **new_neigbour < **neighbour || !update_nodes.contains(&neighbour) { // check with old neighbours always, with new only in one direction
+                            assert!(**new_neigbour != **neighbour);
+                            let i_edge = neighbours.get(new_neigbour).unwrap();
+                            let j_edge = neighbours.get(neighbour).unwrap();
+                            let edge_sum =  i_edge.dist + j_edge.dist;
+                            let ws_now = SystemTime::now();
+                            let is_shortcut_needed = self.is_shortcut_needed(**new_neigbour, **neighbour, edge_sum, *node_id, a_star_object);
+                            witness_time += ws_now.elapsed().unwrap().as_secs_f32();
+                            if is_shortcut_needed {
+                                let hopcount: usize = i_edge.hopcount + j_edge.hopcount;
+                                new_insertions.push((**new_neigbour, **neighbour, CHEdge {dist: edge_sum, hopcount}));
+                            }
                         }
                     }
                 }
-                importance[node.id] = l_counter[node.id] as f32 + insert_edges.len() as f32 / neighbour_ids.len() as f32 + hopcount_sum_insert as f32 / hopcount_sum as f32;
-                priority_queue.insert_or_update(node.id, &importance);
             } {
-                self.borrow_mut_node(*node_id).insertions = insert_edges;
+                self.borrow_mut_node(*node_id).insertions.extend(new_insertions);
             }
+            let mut hopcount_sum_insert = 0;
+            for insertion in &self.borrow_node(*node_id).insertions {
+                hopcount_sum_insert += insertion.2.hopcount;
+            }
+
+            importance[*node_id] = 
+                l_counter[*node_id] as f32 + self.borrow_node(*node_id).insertions.len() as f32 / self.borrow_node(*node_id).neighbours.len() as f32 +
+                hopcount_sum_insert as f32 / hopcount_sum as f32;
+            priority_queue.insert_or_update(*node_id, &importance);
+
             counter += 1;
             if counter % 1000 == 0 {
                 print!("\rUpdated importance of {} out of {} nodes", counter, update_nodes.len());
