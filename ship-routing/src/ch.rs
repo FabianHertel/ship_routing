@@ -68,10 +68,10 @@ pub fn ch_precalculations(
 
         if last_save.elapsed().unwrap().as_secs() > 60 {
             print!("Save; ");
-            save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &ws_object, level_counter);
+            save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &ws_object, &update_nodes, level_counter);
             last_save = SystemTime::now();
         }
-        let percent = contracting_graph.n_nodes() as f32 / final_ch_graph.n_nodes() as f32;
+        let percent = (contracting_graph.n_nodes() * 100) as f32 / final_ch_graph.n_nodes() as f32;
         println!("Contracted: graph of size {:.2}% - {} n - {} e; final {} edges",
             percent, contracting_graph.n_nodes(), contracting_graph.n_edges(), final_ch_graph.n_edges()
         );
@@ -86,13 +86,13 @@ pub fn ch_precalculations(
 
 fn save_in_file(
     final_ch_graph: &CHGraph, contracting_graph: &CHGraph, importance: &Vec<f32>, l_counter: &Vec<usize>,
-    ws_object: &Vec<HashMap<usize, u32>>, level_counter: i32
+    ws_object: &Vec<HashMap<usize, u32>>, update_nodes: &HashSet<usize>, level_counter: i32
 ) {
     let final_ch_graph_fmi = final_ch_graph.get_print_nodes_and_edges();
     let contracted_graph_fmi = contracting_graph.get_print_nodes_and_edges();
     let encoded = bincode::serialize(&(
         final_ch_graph_fmi.0, final_ch_graph_fmi.1, contracted_graph_fmi.0, contracted_graph_fmi.1,
-        importance, l_counter, ws_object, level_counter
+        importance, l_counter, ws_object, update_nodes, level_counter
     )).unwrap();
     
     let mut f = File::create("data/graph/ch_temp.bin").expect("Unable to create file");
