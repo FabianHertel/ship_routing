@@ -25,16 +25,16 @@ pub fn continue_ch_precalculations(filename_out: &str) {
     let graph_file = File::open("data/graph/ch_temp.bin").expect("CH temp file to continue not found, abort");
     let reader = BufReader::new(graph_file);
 
-    let decoded: Result<(Vec<Node>, Vec<Edge>, Vec<Node>, Vec<Edge>, Vec<f32>, Vec<usize>, Vec<HashMap<usize,u32>>, i32), Box<bincode::ErrorKind>> = bincode::deserialize_from(reader);
+    let decoded: Result<(Vec<Node>, Vec<Edge>, Vec<Node>, Vec<Edge>, Vec<f32>, Vec<usize>, Vec<HashMap<usize,u32>>, HashSet<usize>, i32), Box<bincode::ErrorKind>> = 
+        bincode::deserialize_from(reader);
     match decoded {
         Ok((
             final_ch_graph_fmi_nodes, final_ch_graph_fmi_edges, contracted_graph_fmi_nodes,
             contracted_graph_fmi_edges, importance, l_counter, ws_object, 
-            level_counter
+            update_nodes, level_counter
         )) => {
             let contracted_graph = CHGraph::from_graph(&contracted_graph_fmi_nodes, &contracted_graph_fmi_edges);
             let final_ch_graph = CHGraph::from_graph(&final_ch_graph_fmi_nodes, &final_ch_graph_fmi_edges);
-            let update_nodes = contracted_graph.nodes.keys().map(|node| *node).collect();
             let mut priority_queue: BinaryMinHeap = BinaryMinHeap::with_capacity(final_ch_graph.n_nodes());
             for node in contracted_graph_fmi_nodes {
                 priority_queue.insert_or_update(node.id, &importance);
