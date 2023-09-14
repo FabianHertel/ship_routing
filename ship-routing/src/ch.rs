@@ -1,26 +1,62 @@
-use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}, fs::File, io::{Write, self}};
+use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}, fs::File, io::{Write, self, BufReader}};
 use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_graph_to_file, Coordinates};
 use cli_clipboard;
 use crate::{binary_minheap::BinaryMinHeap, ws_a_star::ws_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra};
 
-pub fn ch_precalculations(graph: &Graph, filename_out: &str) {
+pub fn new_ch_precalculations(graph: &Graph, filename_out: &str) {
     println!("Convert graphs");
-    let mut contracting_graph = CHGraph::from_graph(graph);
-    let mut final_ch_graph = CHGraph::from_graph(graph);       // will be the upwareded DAG
+    let contracting_graph = CHGraph::from_graph(&graph.nodes, &graph.edges);
+    let final_ch_graph = CHGraph::from_graph(&graph.nodes, &graph.edges);       // will be the upwareded DAG
 
-    let mut ws_object: Vec<HashMap<usize, u32>> = vec![HashMap::new(); graph.n_nodes()];
+    let ws_object: Vec<HashMap<usize, u32>> = vec![HashMap::new(); graph.n_nodes()];
 
     println!("Graph of size {} and {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges());
-    let mut l_counter: Vec<usize> = vec![0; contracting_graph.n_nodes()];
-    let mut priority_queue: BinaryMinHeap = BinaryMinHeap::with_capacity(contracting_graph.n_nodes());
-    let mut importance: Vec<f32> = vec![0.0; contracting_graph.n_nodes()];
+    let l_counter: Vec<usize> = vec![0; contracting_graph.n_nodes()];
+    let priority_queue: BinaryMinHeap = BinaryMinHeap::with_capacity(contracting_graph.n_nodes());
+    let importance: Vec<f32> = vec![0.0; contracting_graph.n_nodes()];
+    let update_nodes = contracting_graph.nodes.keys().map(|node| *node).collect();
+    let level_counter = 0;
+    
+    ch_precalculations(contracting_graph, final_ch_graph, ws_object, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out);
+}
 
-    let mut update_nodes = contracting_graph.nodes.keys().map(|node| *node).collect();
+pub fn continue_ch_precalculations(filename_out: &str) {
+    println!("Reading temp file");
+    let graph_file = File::open("data/graph/ch_temp.bin").expect("CH temp file to continue not found, abort");
+    let reader = BufReader::new(graph_file);
 
-    let mut level_counter = 0;
+    let decoded: Result<(Vec<Node>, Vec<Edge>, Vec<Node>, Vec<Edge>, Vec<f32>, Vec<usize>, Vec<HashMap<usize,u32>>, i32), Box<bincode::ErrorKind>> = bincode::deserialize_from(reader);
+    match decoded {
+        Ok((
+            final_ch_graph_fmi_nodes, final_ch_graph_fmi_edges, contracted_graph_fmi_nodes,
+            contracted_graph_fmi_edges, importance, l_counter, ws_object, 
+            level_counter
+        )) => {
+            let contracted_graph = CHGraph::from_graph(&contracted_graph_fmi_nodes, &contracted_graph_fmi_edges);
+            let final_ch_graph = CHGraph::from_graph(&final_ch_graph_fmi_nodes, &final_ch_graph_fmi_edges);
+            let update_nodes = contracted_graph.nodes.keys().map(|node| *node).collect();
+            let mut priority_queue: BinaryMinHeap = BinaryMinHeap::with_capacity(final_ch_graph.n_nodes());
+            for node in contracted_graph_fmi_nodes {
+                priority_queue.insert_or_update(node.id, &importance);
+            }
+
+            println!("Restored last ch generation session with graph size {} {}", contracted_graph.n_nodes(), contracted_graph.n_edges());
+
+            ch_precalculations(contracted_graph, final_ch_graph, ws_object, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out);
+        },
+        Err(_) => println!("CH temp file to continue not in the right format, abort"),
+    }
+    
+}
+
+pub fn ch_precalculations(
+    mut contracting_graph: CHGraph, mut final_ch_graph: CHGraph, mut ws_object: Vec<HashMap<usize, u32>>, mut l_counter: Vec<usize>,
+    mut priority_queue: BinaryMinHeap, mut importance: Vec<f32>, mut update_nodes:HashSet<usize>, mut level_counter: i32,
+    filename_out: &str
+) {
     let now = SystemTime::now();
-    let mut last_percent = 0.99;
-    while contracting_graph.n_nodes() as f32 > graph.n_nodes() as f32 * 0.01 {
+    let mut last_save = SystemTime::now();
+    while contracting_graph.n_nodes() as f32 > final_ch_graph.n_nodes() as f32 * 0.01 {
         contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object);
 
         let (independent_set, affected_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
@@ -30,31 +66,32 @@ pub fn ch_precalculations(graph: &Graph, filename_out: &str) {
         contracting_graph.contract_nodes(&independent_set, &mut l_counter, &mut final_ch_graph);
         level_counter += 1;
 
-        let percent = contracting_graph.n_nodes() as f32 / graph.n_nodes() as f32;
-        if (last_percent / 0.1f32).floor() != (percent / 0.1f32).floor() {
-            print!("Solved {}%, save in file; ", (last_percent / 0.1f32).floor() * 10.0);
-            save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &ws_object, &graph, level_counter);
-            last_percent = percent;
+        if last_save.elapsed().unwrap().as_secs() > 60 {
+            print!("Save; ");
+            save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &ws_object, level_counter);
+            last_save = SystemTime::now();
         }
-        println!("Contracted: graph of size {} and {} edges; final graph with {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges(), final_ch_graph.n_edges());
-        // let _ = std::io::stdin().read_line(&mut String::new());
+        let percent = contracting_graph.n_nodes() as f32 / final_ch_graph.n_nodes() as f32;
+        println!("Contracted: graph of size {:.2}% - {} n - {} e; final {} edges",
+            percent, contracting_graph.n_nodes(), contracting_graph.n_edges(), final_ch_graph.n_edges()
+        );
     }
     
     println!("Finished graph contraction in {} min, final graph has {} levels, {} nodes on top level and {} edges",
         now.elapsed().unwrap().as_secs_f64() / 60.0, level_counter, contracting_graph.n_nodes(), final_ch_graph.n_edges());
 
-    let mut final_fmi_graph = final_ch_graph.to_fmi_graph(graph);
-    print_graph_to_file(&final_fmi_graph.nodes, &mut final_fmi_graph.edges, filename_out);
+    let mut final_fmi_graph = final_ch_graph.get_print_nodes_and_edges();
+    print_graph_to_file(&final_fmi_graph.0, &mut final_fmi_graph.1, filename_out);
 }
 
 fn save_in_file(
     final_ch_graph: &CHGraph, contracting_graph: &CHGraph, importance: &Vec<f32>, l_counter: &Vec<usize>,
-    ws_object: &Vec<HashMap<usize, u32>>, graph: &Graph, level_counter: i32
+    ws_object: &Vec<HashMap<usize, u32>>, level_counter: i32
 ) {
-    let final_ch_graph_fmi = final_ch_graph.to_fmi_graph(graph);
-    let contracted_graph_fmi = contracting_graph.to_fmi_graph(graph);
+    let final_ch_graph_fmi = final_ch_graph.get_print_nodes_and_edges();
+    let contracted_graph_fmi = contracting_graph.get_print_nodes_and_edges();
     let encoded = bincode::serialize(&(
-        final_ch_graph_fmi.nodes, final_ch_graph_fmi.edges, contracted_graph_fmi.nodes, contracted_graph_fmi.edges,
+        final_ch_graph_fmi.0, final_ch_graph_fmi.1, contracted_graph_fmi.0, contracted_graph_fmi.1,
         importance, l_counter, ws_object, level_counter
     )).unwrap();
     
@@ -77,9 +114,9 @@ impl CHGraph {
         return CHGraph {nodes: HashMap::new()};
     }
 
-    pub fn from_graph(graph: &Graph) -> CHGraph {
+    pub fn from_graph(nodes: &Vec<Node>, edges: &Vec<Edge>) -> CHGraph {
         let mut new_graph = CHGraph::new();
-        for node in &graph.nodes {
+        for node in nodes {
             new_graph.nodes.insert(node.id, RefCell::new(CHNode {
                 neighbours: HashMap::new(),
                 id: node.id,
@@ -89,24 +126,25 @@ impl CHGraph {
                 coordinades: Coordinates(node.lon, node.lat)
             }));
         }
-        for edge in &graph.edges {
+        for edge in edges {
             let src_node = new_graph.nodes.get(&edge.src).unwrap();
             src_node.borrow_mut().neighbours.insert(edge.tgt, CHEdge { hopcount: 1, dist: edge.dist });
         }
         return new_graph;
     }
 
-    pub fn to_fmi_graph(&self, graph: &Graph) -> Graph {
-        let mut nodes: Vec<Node> = self.nodes.iter().map(|e| graph.get_node(*e.0).clone()).collect();
+    pub fn get_print_nodes_and_edges(&self) -> (Vec<Node>, Vec<Edge>) {
+        let mut nodes: Vec<Node> = self.nodes.iter().map(|e|  {
+            let node = e.1.borrow();
+            Node { id: node.id, lon: node.coordinades.0, lat: node.coordinades.1 }
+        }).collect();
         nodes.sort_by(|e,f| e.id.cmp(&f.id));
 
         let mut edges = vec![];
-        let mut offsets: Vec<usize> = vec![0; graph.n_nodes()];
-        for node in nodes {
-            offsets[node.id] = edges.len();
+        for node in &nodes {
             self.borrow_node(node.id).neighbours.iter().for_each(|(tgt, edge)| edges.push(Edge {src: node.id, tgt: *tgt, dist: edge.dist}));
         }
-        Graph { nodes: graph.nodes.clone(), edges, offsets }
+        return (nodes, edges);
     }
 
     pub fn n_nodes(&self) -> usize {
@@ -167,7 +205,7 @@ impl CHGraph {
                 let _ = io::stdout().flush();
             }
         }
-        print!("\rUpdated importance of {} nodes in {} ms, witness search took: {} ms; ",
+        print!("\rUpdated importance of {} nodes in {} ms, ws: {} ms; ",
             update_nodes.len(), now.elapsed().unwrap().as_millis(), (witness_time * 1000.0) as u64
         );
     }

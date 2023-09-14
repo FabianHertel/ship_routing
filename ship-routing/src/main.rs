@@ -12,7 +12,7 @@ mod ws_a_star;
 use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file };
 use test_routing::test_samples;
 
-use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{ch_precalculations, run_ch}};
+use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{new_ch_precalculations, run_ch, continue_ch_precalculations}};
 
 static mut GRAPH: Graph = Graph {
     nodes: Vec::new(),
@@ -70,10 +70,10 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
 
 fn main() {
     let command = std::env::args_os().nth(1);
-    let filename = "graph";
+    let filename = param_to_string(2, Some("graph")).expect("Plese specify filename");
     println!("Import Graph");
     unsafe {
-        GRAPH = import_graph_from_file(filename).expect("Error importing Graph");
+        GRAPH = import_graph_from_file(&filename).expect("Error importing Graph");
         CH_GRAPH = import_graph_from_file(&("ch_".to_string() + &filename)).ok();
         // GRAPH.edges_to_clipboard();
     };
@@ -84,9 +84,9 @@ fn main() {
             match command.to_str() {
                 Some("test") => test_samples(unsafe { &GRAPH }, unsafe { CH_GRAPH.as_ref().unwrap()}),
                 Some("ch_precalc") => unsafe {
-                    let filename_out = param_to_string(2, Some("ch_graph")).expect("Plese specify filename");
-                    ch_precalculations(&GRAPH, filename_out.as_str());
+                    new_ch_precalculations(&GRAPH, &("ch_".to_string() + &filename));
                 },
+                Some("continue_ch_precalc") => continue_ch_precalculations(&("ch_".to_string() + &filename)),
                 _ => println!("Command not known. Exit"),
             }
         },
