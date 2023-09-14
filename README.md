@@ -10,16 +10,16 @@ To run the final application you just have to execute the exe file in .\executio
 
 ## Compile and run source code
 ### Preprocessing
-navigate into the preprocessing folder
-execute ´cargo run import {filename}´ to import a osm (f.e. ´cargo run import ../../planet-coastlinespbf-cleanedosm.pbf´ when placed next to project)
-execute ´cargo run generate´ to generate a graph
-
-copy the preprocessing/graph.fmi to the execution folder into 'osm/src-tauri/'
+Place input PBF file into ./data folder.
+Import PBF: Execute ´cargo run -p preprocessing import {filename}´ in root folder
+Generate Graph: Execute ´cargo run -p preprocessing generate´ in root folder
+Preprocessing CH: execute ´cargo run -p ship-routing ch_precalc´ in root folder (CAN TAKE MANY HOURS /DAYS!)
+To continue last session of contraction hierarchie precalculations: execute ´cargo run -p ship-routing continue_ch_precalc´ in root folder
 
 ### Execution
-navigate into the osm folder
-execute ´cargo install tauri-cli´
-execute ´cargo tauri build´
-to run it in dev mode: ´cargo tauri dev´
-Copy fmi file into .\osm\src-tauri\target\release\
-exectution: run exe file in .\osm\src-tauri\target\release\osm.exe
+execute ´cargo run -p ship-routing´
+
+or
+
+Copy graph.fmi/graph.bin file into .\target\debug\data\graph\
+execution: run exe file in .\target\debug\ship-routing.exe

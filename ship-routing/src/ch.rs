@@ -51,12 +51,12 @@ pub fn continue_ch_precalculations(filename_out: &str) {
 
 pub fn ch_precalculations(
     mut contracting_graph: CHGraph, mut final_ch_graph: CHGraph, mut ws_object: Vec<HashMap<usize, u32>>, mut l_counter: Vec<usize>,
-    mut priority_queue: BinaryMinHeap, mut importance: Vec<f32>, mut update_nodes:HashSet<usize>, mut level_counter: i32,
+    mut priority_queue: BinaryMinHeap, mut importance: Vec<f32>, mut update_nodes: HashSet<usize>, mut level_counter: i32,
     filename_out: &str
 ) {
     let now = SystemTime::now();
     let mut last_save = SystemTime::now();
-    let mut a_star_object: AStartObject = (RefCell::new(HeuristicalDistances::init()), RefCell::new(BinaryMinHeapMap::with_capacity(contracting_graph.n_nodes())));
+    let a_star_object: AStartObject = (RefCell::new(HeuristicalDistances::init()), RefCell::new(BinaryMinHeapMap::with_capacity(contracting_graph.n_nodes())));
     while contracting_graph.n_nodes() as f32 > final_ch_graph.n_nodes() as f32 * 0.01 {
         contracting_graph.update_importance_of(&mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object, &a_star_object);
 

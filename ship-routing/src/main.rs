@@ -72,7 +72,7 @@ fn main() {
     let command = std::env::args_os().nth(1);
     let filename = param_to_string(2, Some("graph")).expect("Plese specify filename");
     println!("Import Graph");
-    if command.is_some().to_string().as_str() != "continue_ch_precalc" { unsafe {
+    if command.as_ref().is_none() || command.as_ref().unwrap().to_str() != Some("continue_ch_precalc") { unsafe {
         GRAPH = import_graph_from_file(&filename).expect("Error importing Graph");
         CH_GRAPH = import_graph_from_file(&("ch_".to_string() + &filename)).ok();
         // GRAPH.edges_to_clipboard();
