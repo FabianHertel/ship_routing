@@ -12,18 +12,15 @@ mod ws_a_star;
 use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file };
 use test_routing::test_samples;
 
-use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{new_ch_precalculations, run_ch, continue_ch_precalculations}};
+use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{new_ch_precalculations, run_ch, continue_ch_precalculations}, a_star::run_a_star, dijkstra::run_dijkstra};
 
-static mut GRAPH: Graph = Graph {
-    nodes: Vec::new(),
-    edges: Vec::new(),
-    offsets: Vec::new(),
-};
-static mut CH_GRAPH: Option<Graph> = Some(Graph {
-    nodes: Vec::new(),
-    edges: Vec::new(),
-    offsets: Vec::new(),
-});
+static mut GRAPH: Option<Graph> = None;
+static mut CH_GRAPH: Option<Graph> = None;
+static mut ROUTING: Routing = Routing::DI;
+
+pub enum Routing {
+    DI, BD, ASTAR, CH
+}
 
 #[tauri::command]
 fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
@@ -33,10 +30,18 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
     let mut shortest_path = Vec::new();
     
     unsafe {
-        let (src_node, tgt_node) = (GRAPH.closest_node(&src_coordinates), GRAPH.closest_node(&tgt_coordinates));
+        let (src_node, tgt_node) = match ROUTING {
+            Routing::CH => (CH_GRAPH.as_ref().unwrap().closest_node(&src_coordinates), CH_GRAPH.as_ref().unwrap().closest_node(&tgt_coordinates)),
+            _ => (GRAPH.as_ref().unwrap().closest_node(&src_coordinates), GRAPH.as_ref().unwrap().closest_node(&tgt_coordinates)),
+        };
         // println!("Routing from {:?} to {:?}", src_node, tgt_node);
-    
-        let dijkstra_result = run_bidirectional_dijkstra(src_node, tgt_node, &GRAPH, true);
+
+        let dijkstra_result = match ROUTING {
+            Routing::DI => run_dijkstra(src_node, tgt_node, GRAPH.as_ref().unwrap()),
+            Routing::BD => run_bidirectional_dijkstra(src_node, tgt_node, GRAPH.as_ref().unwrap(), true),
+            Routing::ASTAR => run_a_star(src_node, tgt_node, GRAPH.as_ref().unwrap()),
+            Routing::CH => run_ch(src_node, tgt_node, CH_GRAPH.as_ref().unwrap()),
+        };
         
         match &dijkstra_result.path {
             Some(current_path) => {
@@ -46,22 +51,8 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
             }
             None => ()
         }
-        println!("Dijkstra: {}", dijkstra_result);
+        println!("Shortest paht: {}", dijkstra_result);
         
-        if CH_GRAPH.is_some() {
-            let ch_result = run_ch(src_node, tgt_node, CH_GRAPH.as_ref().unwrap());
-            match &ch_result.path {
-                Some(current_path) => {
-                    for i in 0..current_path.len() {
-                        shortest_path.push([current_path[i].lat, current_path[i].lon]);
-                    }
-                }
-                None => ()
-            }
-            println!("CH: {}", ch_result);
-        } else {
-            println!("No CH data found, so no CH calculation");
-        }
     }
 
 
@@ -71,37 +62,75 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
 fn main() {
     let command = std::env::args_os().nth(1);
     let filename = param_to_string(2, Some("graph")).expect("Plese specify filename");
-    println!("Import Graph");
-    if command.as_ref().is_none() || command.as_ref().unwrap().to_str() != Some("continue_ch_precalc") { unsafe {
-        GRAPH = import_graph_from_file(&filename).expect("Error importing Graph");
-        CH_GRAPH = import_graph_from_file(&("ch_".to_string() + &filename)).ok();
-        // GRAPH.edges_to_clipboard();
-    }};
-    println!("Finished importing");
 
     match command {
         Some(command) => {
             match command.to_str() {
-                Some("test") => test_samples(unsafe { &GRAPH }, unsafe { CH_GRAPH.as_ref().unwrap()}),
+                Some("test") => {
+                    import_basic_graph(&filename);
+                    test_samples(unsafe { GRAPH.as_ref().unwrap() }, unsafe { CH_GRAPH.as_ref().unwrap()})
+                },
                 Some("ch_precalc") => unsafe {
-                    new_ch_precalculations(&GRAPH, &("ch_".to_string() + &filename));
+                    import_basic_graph(&filename);
+                    new_ch_precalculations(GRAPH.as_ref().unwrap(), &("ch_".to_string() + &filename));
                 },
                 Some("continue_ch_precalc") => continue_ch_precalculations(&("ch_".to_string() + &filename)),
-                Some("run") => {tauri::Builder::default()
-                    .invoke_handler(tauri::generate_handler![route])
-                    .run(tauri::generate_context!())
-                    .expect("error while running tauri application");
+                Some("di") => unsafe {
+                    ROUTING = Routing::DI;
+                    import_basic_graph(&filename);
+                    println!("Start Leaflet with Dijkstra routing");
+                    run_tauri();
+                },
+                Some("bd") => unsafe {
+                    ROUTING = Routing::BD;
+                    import_basic_graph(&filename);
+                    println!("Start Leaflet with bidirectional Dijkstra routing");
+                    run_tauri();
+                },
+                Some("a*") => unsafe {
+                    ROUTING = Routing::ASTAR;
+                    import_basic_graph(&filename);
+                    println!("Start Leaflet with A* routing");
+                    run_tauri();
+                },
+                Some("ch") => unsafe {
+                    ROUTING = Routing::CH;
+                    import_ch_graph(&filename);
+                    println!("Start Leaflet with contraction hierarchy routing");
+                    run_tauri();
                 },
                 _ => println!("Command not known. Exit"),
             }
         },
         None => {
-            tauri::Builder::default()
-                .invoke_handler(tauri::generate_handler![route])
-                .run(tauri::generate_context!())
-                .expect("error while running tauri application");
+            import_basic_graph(&filename);
+            println!("Default: Start Leaflet with Dijkstra routing");
+            run_tauri();
         },
     }
+}
+
+fn import_basic_graph(filename: &str) {
+    println!("Import Graph");
+    unsafe {
+        GRAPH = Some(import_graph_from_file(&filename).expect("Error importing Graph"));
+    };
+    println!("Finished importing");
+}
+
+fn import_ch_graph(filename: &str) {
+    println!("Import Graph");
+    unsafe {
+        CH_GRAPH = Some(import_graph_from_file(&("ch_".to_string() + &filename)).expect("Error importing ch graph"));
+    };
+    println!("Finished importing");
+}
+
+fn run_tauri() {
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![route])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
 
 fn param_to_string(nth: usize, alt_str: Option<&str>) -> Result<String, String> {
