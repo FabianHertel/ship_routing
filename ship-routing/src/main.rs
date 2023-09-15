@@ -51,7 +51,7 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
             }
             None => ()
         }
-        println!("Shortest paht: {}", dijkstra_result);
+        println!("Shortest path: {}", dijkstra_result);
         
     }
 
@@ -72,9 +72,23 @@ fn main() {
                 },
                 Some("ch_precalc") => unsafe {
                     import_basic_graph(&filename);
-                    new_ch_precalculations(GRAPH.as_ref().unwrap(), &("ch_".to_string() + &filename));
+                    let node_limit = match std::env::args_os().nth(3) {
+                        Some(param) => {
+                            param.into_string().expect("Something wrong with the node limit").parse::<u32>().expect("Node limit has wrong format")
+                        },
+                        None => 1,
+                    };
+                    new_ch_precalculations(GRAPH.as_ref().unwrap(), &("ch_".to_string() + &filename), node_limit);
                 },
-                Some("continue_ch_precalc") => continue_ch_precalculations(&("ch_".to_string() + &filename)),
+                Some("continue_ch_precalc") => {
+                    let node_limit = match std::env::args_os().nth(3) {
+                        Some(param) => {
+                            param.into_string().expect("Something wrong with the node limit").parse::<u32>().expect("Node limit has wrong format")
+                        },
+                        None => 1,
+                    };
+                    continue_ch_precalculations(&("ch_".to_string() + &filename), node_limit)
+                },
                 Some("di") => unsafe {
                     ROUTING = Routing::DI;
                     import_basic_graph(&filename);

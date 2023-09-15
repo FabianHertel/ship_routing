@@ -3,7 +3,7 @@ use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_gra
 use cli_clipboard;
 use crate::{binary_minheap::BinaryMinHeap, ws_a_star::{ws_a_star, AStartObject, HeuristicalDistances}, bidirectional_dijkstra::run_bidirectional_dijkstra, binary_minheap_map::BinaryMinHeapMap};
 
-pub fn new_ch_precalculations(graph: &Graph, filename_out: &str) {
+pub fn new_ch_precalculations(graph: &Graph, filename_out: &str, node_limit: u32) {
     println!("Convert graphs");
     let contracting_graph = CHGraph::from_graph(&graph.nodes, &graph.edges);
     let final_ch_graph = CHGraph::from_graph(&graph.nodes, &graph.edges);       // will be the upwareded DAG
@@ -16,10 +16,10 @@ pub fn new_ch_precalculations(graph: &Graph, filename_out: &str) {
     let independent_set = contracting_graph.nodes.keys().map(|node| *node).collect();
     let level_counter = 0;
     
-    ch_precalculations(contracting_graph, final_ch_graph, independent_set, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out);
+    ch_precalculations(contracting_graph, final_ch_graph, independent_set, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out, node_limit);
 }
 
-pub fn continue_ch_precalculations(filename_out: &str) {
+pub fn continue_ch_precalculations(filename_out: &str, node_limit: u32) {
     println!("Reading temp file");
     let graph_file = File::open("data/graph/ch_temp.bin").expect("CH temp file to continue not found, abort");
     let reader = BufReader::new(graph_file);
@@ -32,16 +32,18 @@ pub fn continue_ch_precalculations(filename_out: &str) {
             contracted_graph_fmi_edges, importance, l_counter, independent_set, 
             update_nodes, level_counter
         )) => {
-            let contracted_graph = CHGraph::from_graph(&contracted_graph_fmi_nodes, &contracted_graph_fmi_edges);
+            let contracting_graph = CHGraph::from_graph(&contracted_graph_fmi_nodes, &contracted_graph_fmi_edges);
             let final_ch_graph = CHGraph::from_graph(&final_ch_graph_fmi_nodes, &final_ch_graph_fmi_edges);
             let mut priority_queue: BinaryMinHeap = BinaryMinHeap::with_capacity(final_ch_graph.n_nodes());
             for node in contracted_graph_fmi_nodes {
                 priority_queue.insert_or_update(node.id, &importance);
             }
 
-            println!("Restored last ch generation session with graph size {} {}", contracted_graph.n_nodes(), contracted_graph.n_edges());
+            println!("Restored last ch generation session with graph size {} {}", contracting_graph.n_nodes(), contracting_graph.n_edges());
 
-            ch_precalculations(contracted_graph, final_ch_graph, independent_set, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out);
+            ch_precalculations(contracting_graph, final_ch_graph, independent_set, l_counter, 
+                priority_queue, importance, update_nodes, level_counter, filename_out, node_limit
+            );
         },
         Err(_) => println!("CH temp file to continue not in the right format, abort"),
     }
@@ -51,13 +53,13 @@ pub fn continue_ch_precalculations(filename_out: &str) {
 pub fn ch_precalculations(
     mut contracting_graph: CHGraph, mut final_ch_graph: CHGraph, mut independent_set: Vec<usize>, mut l_counter: Vec<usize>,
     mut priority_queue: BinaryMinHeap, mut importance: Vec<f32>, mut update_nodes: HashSet<usize>, mut level_counter: i32,
-    filename_out: &str
+    filename_out: &str, node_limit: u32
 ) {
     let now = SystemTime::now();
     let mut last_save = SystemTime::now();
     let mut last_save_durance = 1;
     let a_star_object: AStartObject = (RefCell::new(HeuristicalDistances::init()), RefCell::new(BinaryMinHeapMap::with_capacity(contracting_graph.n_nodes())));
-    while contracting_graph.n_nodes() > 1 {
+    while contracting_graph.n_nodes() > node_limit as usize {
         contracting_graph.update_importance_of(
             &mut importance, &update_nodes, &mut priority_queue, &l_counter, &a_star_object, HashSet::from_iter(independent_set.into_iter())
         );
@@ -73,7 +75,7 @@ pub fn ch_precalculations(
             save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &independent_set, &update_nodes, level_counter);
             last_save = SystemTime::now();
             last_save_durance = now.elapsed().unwrap().as_secs();
-            print!("Saved, next in {} sec; ", 10 * last_save_durance);
+            print!("Saved, next in {} sec; ", 50 * last_save_durance);
         }
 
         let percent = (contracting_graph.n_nodes() * 100) as f32 / final_ch_graph.n_nodes() as f32;
