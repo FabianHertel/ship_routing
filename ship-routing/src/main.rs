@@ -16,7 +16,7 @@ use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{new_ch_prec
 
 static mut GRAPH: Option<Graph> = None;
 static mut CH_GRAPH: Option<Graph> = None;
-static mut ROUTING: Routing = Routing::DI;
+static mut ROUTING: Routing = Routing::CH;
 
 pub enum Routing {
     DI, BD, ASTAR, CH
@@ -110,15 +110,15 @@ fn main() {
                 Some("ch") => unsafe {
                     ROUTING = Routing::CH;
                     import_ch_graph(&filename);
-                    println!("Start Leaflet with contraction hierarchy routing");
+                    println!("Start Leaflet with contraction hierarchies routing");
                     run_tauri();
                 },
                 _ => println!("Command not known. Exit"),
             }
         },
         None => {
-            import_basic_graph(&filename);
-            println!("Default: Start Leaflet with Dijkstra routing");
+            import_ch_graph(&filename);
+            println!("Default: Start Leaflet with contraction hierarchies routing");
             run_tauri();
         },
     }
