@@ -8,16 +8,15 @@ pub fn new_ch_precalculations(graph: &Graph, filename_out: &str) {
     let contracting_graph = CHGraph::from_graph(&graph.nodes, &graph.edges);
     let final_ch_graph = CHGraph::from_graph(&graph.nodes, &graph.edges);       // will be the upwareded DAG
 
-    let ws_object: Vec<HashMap<usize, u32>> = vec![HashMap::new(); graph.n_nodes()];
-
     println!("Graph of size {} and {} edges", contracting_graph.n_nodes(), contracting_graph.n_edges());
     let l_counter: Vec<usize> = vec![0; contracting_graph.n_nodes()];
     let priority_queue: BinaryMinHeap = BinaryMinHeap::with_capacity(contracting_graph.n_nodes());
     let importance: Vec<f32> = vec![0.0; contracting_graph.n_nodes()];
     let update_nodes = contracting_graph.nodes.keys().map(|node| *node).collect();
+    let independent_set = contracting_graph.nodes.keys().map(|node| *node).collect();
     let level_counter = 0;
     
-    ch_precalculations(contracting_graph, final_ch_graph, ws_object, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out);
+    ch_precalculations(contracting_graph, final_ch_graph, independent_set, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out);
 }
 
 pub fn continue_ch_precalculations(filename_out: &str) {
@@ -25,12 +24,12 @@ pub fn continue_ch_precalculations(filename_out: &str) {
     let graph_file = File::open("data/graph/ch_temp.bin").expect("CH temp file to continue not found, abort");
     let reader = BufReader::new(graph_file);
 
-    let decoded: Result<(Vec<Node>, Vec<Edge>, Vec<Node>, Vec<Edge>, Vec<f32>, Vec<usize>, Vec<HashMap<usize,u32>>, HashSet<usize>, i32), Box<bincode::ErrorKind>> = 
+    let decoded: Result<(Vec<Node>, Vec<Edge>, Vec<Node>, Vec<Edge>, Vec<f32>, Vec<usize>, Vec<usize>, HashSet<usize>, i32), Box<bincode::ErrorKind>> = 
         bincode::deserialize_from(reader);
     match decoded {
         Ok((
             final_ch_graph_fmi_nodes, final_ch_graph_fmi_edges, contracted_graph_fmi_nodes,
-            contracted_graph_fmi_edges, importance, l_counter, ws_object, 
+            contracted_graph_fmi_edges, importance, l_counter, independent_set, 
             update_nodes, level_counter
         )) => {
             let contracted_graph = CHGraph::from_graph(&contracted_graph_fmi_nodes, &contracted_graph_fmi_edges);
@@ -42,7 +41,7 @@ pub fn continue_ch_precalculations(filename_out: &str) {
 
             println!("Restored last ch generation session with graph size {} {}", contracted_graph.n_nodes(), contracted_graph.n_edges());
 
-            ch_precalculations(contracted_graph, final_ch_graph, ws_object, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out);
+            ch_precalculations(contracted_graph, final_ch_graph, independent_set, l_counter, priority_queue, importance, update_nodes, level_counter, filename_out);
         },
         Err(_) => println!("CH temp file to continue not in the right format, abort"),
     }
@@ -50,19 +49,17 @@ pub fn continue_ch_precalculations(filename_out: &str) {
 }
 
 pub fn ch_precalculations(
-    mut contracting_graph: CHGraph, mut final_ch_graph: CHGraph, mut ws_object: Vec<HashMap<usize, u32>>, mut l_counter: Vec<usize>,
-    mut priority_queue: BinaryMinHeap, mut importance: Vec<f32>, mut _update_nodes: HashSet<usize>, mut level_counter: i32,
+    mut contracting_graph: CHGraph, mut final_ch_graph: CHGraph, mut independent_set: Vec<usize>, mut l_counter: Vec<usize>,
+    mut priority_queue: BinaryMinHeap, mut importance: Vec<f32>, mut update_nodes: HashSet<usize>, mut level_counter: i32,
     filename_out: &str
 ) {
     let now = SystemTime::now();
     let mut last_save = SystemTime::now();
     let mut last_save_durance = 1;
     let a_star_object: AStartObject = (RefCell::new(HeuristicalDistances::init()), RefCell::new(BinaryMinHeapMap::with_capacity(contracting_graph.n_nodes())));
-    let mut independent_set: Vec<usize> = contracting_graph.nodes.iter().map(|e| *e.0).collect();
-    let mut update_nodes: HashSet<usize> = contracting_graph.nodes.iter().map(|e| *e.0).collect();
     while contracting_graph.n_nodes() > 1 {
         contracting_graph.update_importance_of(
-            &mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object, &a_star_object, HashSet::from_iter(independent_set.into_iter())
+            &mut importance, &update_nodes, &mut priority_queue, &l_counter, &a_star_object, HashSet::from_iter(independent_set.into_iter())
         );
 
         (independent_set, update_nodes) = contracting_graph.find_best_independent_set(&mut priority_queue, &importance);
@@ -169,8 +166,7 @@ impl CHGraph {
 
     pub fn update_importance_of(
         &self, importance: &mut Vec<f32>, update_nodes: &HashSet<usize>, priority_queue: &mut BinaryMinHeap,
-        l_counter: &Vec<usize>, _ws_object: &mut Vec<HashMap<usize, u32>>, a_star_object: &AStartObject,
-        removed_nodes: HashSet<usize>
+        l_counter: &Vec<usize>, a_star_object: &AStartObject, removed_nodes: HashSet<usize>
     ) {
         let now = SystemTime::now();
         let mut witness_time = 0.0;
