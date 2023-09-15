@@ -69,6 +69,7 @@ fn run_routing(graph: &Graph, ch_graph: &Graph, route: Route) {
     println!("Routing {}, i.e. {:?} - {:?}", route.description, src_node, tgt_node);
     let dijkstra_result = run_dijkstra(src_node, tgt_node, graph);
     println!("{}", dijkstra_result);
+    println!("Query\tTime\tVisited nodes");
     println!("DI\t{}\t{}", dijkstra_result.calculation_time, dijkstra_result.visited_nodes);
     let a_star_result = run_a_star(src_node, tgt_node, graph);
     println!("A*\t{}\t{}", a_star_result.calculation_time, a_star_result.visited_nodes);

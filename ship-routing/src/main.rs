@@ -68,6 +68,7 @@ fn main() {
             match command.to_str() {
                 Some("test") => {
                     import_basic_graph(&filename);
+                    import_ch_graph(&filename);
                     test_samples(unsafe { GRAPH.as_ref().unwrap() }, unsafe { CH_GRAPH.as_ref().unwrap()})
                 },
                 Some("ch_precalc") => unsafe {
@@ -133,7 +134,7 @@ fn import_basic_graph(filename: &str) {
 }
 
 fn import_ch_graph(filename: &str) {
-    println!("Import Graph");
+    println!("Import CH Graph");
     unsafe {
         CH_GRAPH = Some(import_graph_from_file(&("ch_".to_string() + &filename)).expect("Error importing ch graph"));
     };
