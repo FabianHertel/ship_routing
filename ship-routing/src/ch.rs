@@ -51,15 +51,16 @@ pub fn continue_ch_precalculations(filename_out: &str) {
 
 pub fn ch_precalculations(
     mut contracting_graph: CHGraph, mut final_ch_graph: CHGraph, mut ws_object: Vec<HashMap<usize, u32>>, mut l_counter: Vec<usize>,
-    mut priority_queue: BinaryMinHeap, mut importance: Vec<f32>, mut update_nodes: HashSet<usize>, mut level_counter: i32,
+    mut priority_queue: BinaryMinHeap, mut importance: Vec<f32>, mut _update_nodes: HashSet<usize>, mut level_counter: i32,
     filename_out: &str
 ) {
     let now = SystemTime::now();
     let mut last_save = SystemTime::now();
-    let mut last_save_durance = 10;
+    let mut last_save_durance = 1;
     let a_star_object: AStartObject = (RefCell::new(HeuristicalDistances::init()), RefCell::new(BinaryMinHeapMap::with_capacity(contracting_graph.n_nodes())));
     let mut independent_set: Vec<usize> = contracting_graph.nodes.iter().map(|e| *e.0).collect();
-    while contracting_graph.n_nodes() as f32 > final_ch_graph.n_nodes() as f32 * 0.01 {
+    let mut update_nodes: HashSet<usize> = contracting_graph.nodes.iter().map(|e| *e.0).collect();
+    while contracting_graph.n_nodes() > 1 {
         contracting_graph.update_importance_of(
             &mut importance, &update_nodes, &mut priority_queue, &l_counter, &mut ws_object, &a_star_object, HashSet::from_iter(independent_set.into_iter())
         );
@@ -70,9 +71,9 @@ pub fn ch_precalculations(
         contracting_graph.contract_nodes(&independent_set, &mut l_counter, &mut final_ch_graph);
         level_counter += 1;
 
-        if last_save.elapsed().unwrap().as_secs() > 10 * last_save_durance {
+        if last_save.elapsed().unwrap().as_secs() > 50 * last_save_durance {
             let now = SystemTime::now();
-            save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &ws_object, &update_nodes, level_counter);
+            save_in_file(&final_ch_graph, &contracting_graph, &importance, &l_counter, &independent_set, &update_nodes, level_counter);
             last_save = SystemTime::now();
             last_save_durance = now.elapsed().unwrap().as_secs();
             print!("Saved, next in {} sec; ", 10 * last_save_durance);
@@ -93,13 +94,13 @@ pub fn ch_precalculations(
 
 fn save_in_file(
     final_ch_graph: &CHGraph, contracting_graph: &CHGraph, importance: &Vec<f32>, l_counter: &Vec<usize>,
-    ws_object: &Vec<HashMap<usize, u32>>, update_nodes: &HashSet<usize>, level_counter: i32
+    independet_set: &Vec<usize>, update_nodes: &HashSet<usize>, level_counter: i32
 ) {
     let final_ch_graph_fmi = final_ch_graph.get_print_nodes_and_edges();
     let contracted_graph_fmi = contracting_graph.get_print_nodes_and_edges();
     let encoded = bincode::serialize(&(
         final_ch_graph_fmi.0, final_ch_graph_fmi.1, contracted_graph_fmi.0, contracted_graph_fmi.1,
-        importance, l_counter, ws_object, update_nodes, level_counter
+        importance, l_counter, independet_set, update_nodes, level_counter
     )).unwrap();
     
     let mut f = File::create("data/graph/ch_temp.bin").expect("Unable to create file");
@@ -168,7 +169,7 @@ impl CHGraph {
 
     pub fn update_importance_of(
         &self, importance: &mut Vec<f32>, update_nodes: &HashSet<usize>, priority_queue: &mut BinaryMinHeap,
-        l_counter: &Vec<usize>, ws_object: &mut Vec<HashMap<usize, u32>>, a_star_object: &AStartObject,
+        l_counter: &Vec<usize>, _ws_object: &mut Vec<HashMap<usize, u32>>, a_star_object: &AStartObject,
         removed_nodes: HashSet<usize>
     ) {
         let now = SystemTime::now();
