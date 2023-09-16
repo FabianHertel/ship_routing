@@ -14,6 +14,34 @@ The source code contains still many prints in comments to offer precise debuggin
 
 All the cli commands to run _cargo_ should be executed in the root folder of the project.
 
+## Notes to our graph generation
+Due to the size of this problem, already the generation of our graph is a bottle neck if not implemented well. So we spent time to find solutions for PBF file interpretion, for the point in polygon test and for the graph connection, which have feasable and comfortable timings.
+
+### PBF import
+The PBF file interpretation works with multithreading, which connect all objects of the file in a linked list, to speedup the many list chainings. We struggled here a bit with the opportunities of Rust, to read the coastline and its coordinates in one file read. In the end I need on my machine 133 sec for the coastline node ids, 280 sec for reading the coordinates and finally 77 sec to map the information together, which makes about 490 sec overall (for the PBF with the worlds coastlines).
+
+### Point in polygon test
+The biggest time effort for myself was spent for checking if a coordinate is on land or in water. The fist naive implementation of a odd-or-even rule algorithm took 7400ms in average. Which would mean 523 days for 6000000 tests. So some strong speedups were needed. In the following I describe a bit of my procedure. To makes it easier, I will use the term island for every polygon which is formed by coastlines. This represents islands and continents in our world. To realize a faster point in polygon test, a preprocessings for the islands is needed.
+
+1. I started with precalculating the center of an island and the longest distance to one of its coastlines. If a coordinate is too far from its center, it can't be on the island. For big and longly shaped islands, I calculated multiple center points. Overall it brough me a speedup of almost 20000%, so a single test in 380ms.
+2. Then I implemented a bounding box, like described in [[2]](#2). This dominated the first idea, by being again a bit faster with less preprocessing.
+3. After that the data and code structure got more in focus. With using better suited data structures and method inlining I got again a speedup of 200%, in the end with 115 ms each test.
+4. Now the test was fast if the coordinate was in no bounding box (~20ms). But being in the box of eurasia or america needs more than 200ms. So my next idea was to split all islands in many vertical parts. Every vertical part is an entry of an array. When doing the test, only coastlines in the refering vertical part will be checked. This brought a speedup of 12000% on top, so ending with a test of 9,5ms. Now the calculation was feasable within 16 hours.
+5. After that, the slow checks were the ones which don't touch any island, because for every island of the world the bounding box check is needed. So I introduced a grid over the whole world with grid cells about similar size. For every grid cell out of 1654, I saved a reference to all islands which contain a part of this cell. For the test, I just check the islands which are a part of the same grid cell. I had again a speedup of 10000%, ending with 0,96 ms.
+6. Now added only a few small things, which let me ending with 0,15 ms for each test in average. So overall about 15 min for 6000000, which are needed to generate 4000000 points in water.
+
+The whole preprocessing takes about 60 sek.
+
+It can be argumented, that the polygon test is now in O(1), with a leak of proof and being sure of the argumentation.
+The world is splitted into grids. To find the right grid by coordinates is possible in O(1).
+Now the question is how many islands can be in the grid cell. The number of cells is static here, but the worlds number of islands too. With argumenting, to raise the number of grid cells according to number of islands, it is maybe possible to argue, that the number of islands for each cell stays static in average. For this argumentation we can use the properties of island polygons, which are always planar and never intersecting. So the overall land surface can be never bigger than the surface of the whole planet. But we have to take into account, that the memery will raise Ω(A) where A is the surface of the planet.
+In assumption, that the we can access in time O(1) a number O(1) islands, we only have to check if a test with one island is O(1). Our islands are splitted into vectors of different longitudes. If the splits depend on the number of points of the island, we can reach O(1) points in each segment. So we have to check for every island only O(1) edges.
+
+For the last part my own implementation suits not the exactly the O(1) effort anymore, but in my opinion it is not far away.
+
+### Graph generation
+To make the graph connection with the generated points feasable in a few minutes, a grid over the whole world is used. To find the closest neighbours, only the grid cell of the node itself and the neighbour grid cells will checked. And neighbour grid cells will be only checked, if they could be reached. For this step I need about 5 min on my computer.
+
 ## My routing solutions
 In this project 4 different routings are implemented. The first is the basic Dijkstra algorithm implemented with a binary heap. The other algorithms get an on section in the following.
 
@@ -148,3 +176,8 @@ The contraction hierarchies algorithm is implemented with preprocessing and quer
 Julian Dibbelt, Ben Strasser and Dorothea Wagner (2015). 
 Customizable Contraction Hierarchies. 
 arXiv:1402.0402v5, page 5.
+
+<a id="2">[2]</a> 
+Jian Chang et al
+Next Generation Computer, Animation Techniques.
+https://doi.org/10.1007/978-3-319-69487-0_5, page 60
