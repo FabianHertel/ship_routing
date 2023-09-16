@@ -4,16 +4,14 @@ use graph_lib::{ShortestPathResult, Graph, Node};
 
 /// Run a Dijkstra from the source coodinates to the target coordinates
 pub fn run_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPathResult {
-
     let now = SystemTime::now();
     
     let mut dijkstra_dists = DijkstraDistances::init(graph.n_nodes(), src_node.id);
-
     let mut priority_queue = BinaryMinHeap::with_capacity(graph.n_nodes());
     priority_queue.push(src_node.id, &dijkstra_dists.dists);
-
     let mut visited_nodes = 0;
 
+    // iterate until no better solution can be found
     while !priority_queue.is_empty() {
         let node_id = priority_queue.pop(&dijkstra_dists.dists);
         if node_id == tgt_node.id {
@@ -32,12 +30,15 @@ pub fn run_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Graph) -> Shortest
     }
 }
 
-/// Process the outgoing edges of the node with id `node_id`
+/**
+ * Visits the node with given id and processes the outgoing edges of the node with id `node_id`
+ */ 
 fn process_edges(graph: &Graph, node_id: usize, dijkstra_dists: &mut DijkstraDistances, pq: &mut BinaryMinHeap) {
     let node_dist = dijkstra_dists.dists[node_id];
     for edge in graph.get_outgoing_edges(node_id) {
         let dist = node_dist + edge.dist;
 
+        // if path over visiting node is better than best found so far, update the neighbours distance
         if dist < dijkstra_dists.dists[edge.tgt] {
             dijkstra_dists.dists[edge.tgt] = dist;
             dijkstra_dists.preds[edge.tgt] = node_id;

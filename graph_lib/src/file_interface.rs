@@ -2,6 +2,10 @@ use std::{io::{BufRead, BufReader, Write}, fs::File };
 
 use crate::{Node, Edge, Graph};
 
+/**
+ * Tries to import .bin file of graph. If not existent it will take .fmi
+ * expects filename without file extesion
+ */
 pub fn import_graph_from_file(filename: &str) -> Result<Graph, std::io::Error> {
     let path = "data/graph/".to_owned() + filename;
     let bin_import = import_graph_from_bin_file(&(path.to_owned() + ".bin"));
@@ -15,7 +19,8 @@ pub fn import_graph_from_file(filename: &str) -> Result<Graph, std::io::Error> {
 }
 
 /**
- * expects edges sorted
+ * Print nodes and edges to .fmi and .bin file
+ * expects edges sorted; filename contains no file extension
  */
 pub fn print_graph_to_file(nodes: &Vec<Node>, edges: &Vec<Edge>, filename: &str) {
     let path = "data/graph/".to_owned() + filename;
@@ -24,9 +29,6 @@ pub fn print_graph_to_file(nodes: &Vec<Node>, edges: &Vec<Edge>, filename: &str)
     print_fmi_graph(nodes, edges, &(path.to_owned() + ".fmi"));
 }
 
-/**
- * the filetype .bin will be added later
- */
 fn print_bin_graph(points: &Vec<Node>, edges: &Vec<Edge>, filepath: &str) {
     let encoded = bincode::serialize(&(points, edges)).unwrap();
     
@@ -35,7 +37,7 @@ fn print_bin_graph(points: &Vec<Node>, edges: &Vec<Edge>, filepath: &str) {
 }
 
 /**
- * the filetype .bin will be added later
+ * read graph of bin file, reconnects vertices and edges
  */
 fn import_graph_from_bin_file(filepath: &str) -> Result<Graph, Box<bincode::ErrorKind>> {
     
@@ -62,6 +64,38 @@ fn import_graph_from_bin_file(filepath: &str) -> Result<Graph, Box<bincode::Erro
     }
 }
 
+fn print_fmi_graph(points: &Vec<Node>, edges: &Vec<Edge>, filepath: &str) {
+    let mut data_string = String::new();
+    data_string = data_string + &points.len().to_string() + "\n";
+    data_string = data_string + &edges.len().to_string() + "\n";
+
+    for node in points {
+        data_string = data_string
+            + &node.id.to_string()
+            + " "
+            + &node.lat.to_string()
+            + " "
+            + &node.lon.to_string()
+            + "\n";
+    }
+    for edge in edges {
+        data_string = data_string
+            + &edge.src.to_string()
+            + " "
+            + &edge.tgt.to_string()
+            + " "
+            + &edge.dist.to_string()
+            + "\n";
+    }
+
+    let mut f = File::create(filepath).expect("Unable to create file");
+    f.write_all(data_string.as_bytes()).expect("unable to write file");
+
+}
+
+/**
+ * read graph of fmi file, reconnects vertices and edges
+ */
 fn import_graph_from_fmi_file(filepath :&str) -> Result<Graph, std::io::Error> {
 
     let mut nodes: Vec<Node> = Vec::new();
@@ -133,34 +167,4 @@ fn import_graph_from_fmi_file(filepath :&str) -> Result<Graph, std::io::Error> {
         offsets: offsets,
     })
     
-}
-
-
-fn print_fmi_graph(points: &Vec<Node>, edges: &Vec<Edge>, filepath: &str) {
-    let mut data_string = String::new();
-    data_string = data_string + &points.len().to_string() + "\n";
-    data_string = data_string + &edges.len().to_string() + "\n";
-
-    for node in points {
-        data_string = data_string
-            + &node.id.to_string()
-            + " "
-            + &node.lat.to_string()
-            + " "
-            + &node.lon.to_string()
-            + "\n";
-    }
-    for edge in edges {
-        data_string = data_string
-            + &edge.src.to_string()
-            + " "
-            + &edge.tgt.to_string()
-            + " "
-            + &edge.dist.to_string()
-            + "\n";
-    }
-
-    let mut f = File::create(filepath).expect("Unable to create file");
-    f.write_all(data_string.as_bytes()).expect("unable to write file");
-
 }

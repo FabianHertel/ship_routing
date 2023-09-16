@@ -42,7 +42,8 @@ pub fn generate_graph(filename_out: &str, import_prefix: &str) -> Result<(), Box
 }
 
 /**
- * read continents and islands from geojsons and sort it from big to small
+ * read continents and islands from geojsons in parallel and sort it from big to small;
+ * islands splitted in different files to speedup reading and writing
  */
 pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f32>>> {
     let mut coastlines: Vec<Vec<Vec<f32>>> =  ["continents", "big_islands", "islands", "small_islands"]
@@ -138,6 +139,8 @@ pub fn point_in_polygon_test(lon: f32, lat: f32, island: &Island) -> bool {
                 .floor() as usize;
             let mut last_point_i: usize = 0;
             // println!("Checking {} edges", &island.get_lon_distribution()[index_in_lon_distr].len());
+
+            // check only edges which have one end in the same vertical layer
             for point_i in &island.get_lon_distribution()[index_in_lon_distr] {
                 if *point_i != last_point_i + 1 && *point_i > 0 {
                     // check edge before only if not already checked
@@ -200,9 +203,13 @@ fn generate_random_points_in_ocean(island_grid: &Vec<Vec<GridCell>>, number_of_p
     let mut counter = 0;
 
     while counter < number_of_points {
+        // first we generate just a uniformly distributed random 3D vectors
         (lon, lat, norm) = random_point_on_sphere(&mut rng);
 
+        // if its length (=norm) <= 1, then it's in the earth ball; if not, we ignore the point
         if norm <= 1.0 {
+            // so we have only points which are uniformly distributed vectors in the volume of the earth here
+            // we ignore no the length, so map all these vectors to length 1, which means to the earth surface
             if !point_on_land_test(lon, lat, island_grid) {
                 new_node = Node { id: 0, lat, lon };
 
@@ -222,6 +229,7 @@ fn generate_random_points_in_ocean(island_grid: &Vec<Vec<GridCell>>, number_of_p
     return grid;
 }
 
+
 fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) {
     let mut points: Vec<Node> = Vec::new();
     let mut edges_set = HashMap::new();
@@ -229,7 +237,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
     let mut id = 0;
     let max_distance = 30000;
 
-    // set ids
+    // set ids according to the grid, so from west to east and then from north to south 
     for i in 0..360 {
         for j in 0..180 {
             for k in 0..graph_grid[i][j].len() {
@@ -240,6 +248,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
         }
     }
 
+    // search for closest north-east, north-west, south-east and south-west neighbours and connect them
     for i in 0..360 {
         for j in 0..180 {
             for k in &graph_grid[i][j] {
@@ -255,7 +264,7 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
                 let check_north = distance_to_north_end < max_distance as f32 && j > 0;
                 let check_south = distance_to_south_end < max_distance as f32 && j < 179;
                 
-                // add all possible grids to a vector
+                // add all possible grids to a vector to check enough but not too much
                 let mut possible_neighbours: Vec<Node> = Vec::new();
                 possible_neighbours.extend(&graph_grid[i][j]);
                 if check_north { possible_neighbours.extend(&graph_grid[i][j - 1]) }
@@ -344,6 +353,9 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
     return (points, final_edges);
 }
 
+/**
+ * generates a random 3D vector, returns in lat, lon and length
+ */
 #[inline]
 pub fn random_point_on_sphere<R: Rng + ?Sized>(rng: &mut R) -> (f32, f32, f32) {
     let mut x: f32 = 0.0;

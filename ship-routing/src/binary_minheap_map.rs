@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-/// Efficient binary min-heap to be used as Dijkstra PQ
+/**
+ * Same as BinaryMinHeap, but implemented with HashMaps instead vectors;
+ * Better if heap will stay small compared the problem size
+ */
 pub struct BinaryMinHeapMap {
     heap: Vec<usize>,
     positions: HashMap<usize, usize>,

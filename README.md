@@ -168,7 +168,8 @@ Unfortunately CH can't give always the best results. I explain it so far with mo
 Even if CH is the fastest, for example for routing 4 (from Atlantic to Indic around Afrika), it visits the most nodes. I am sure this can be optimized by a better query.
 
 ## Conclusion
-I implemented 3 additional queries next to basic Dijkstra. Bidirectional Dijkstra gives optimizes for the most cases a bit. Better results are offered by A*. By an easy implementation strong performance gain can be reached. Often we are 3 to 5 times faster than the basic Dijkstra.
+For the graph generation much of effort was put to reach comfortable time for calculating new graphs.
+For the routing, I implemented 3 additional queries next to basic Dijkstra. Bidirectional Dijkstra gives optimizes for the most cases a bit. Better results are offered by A*. By an easy implementation strong performance gain can be reached. Often we are 3 to 5 times faster than the basic Dijkstra.
 The contraction hierarchies algorithm is implemented with preprocessing and query. The contraction takes long, but contracting ~80% feasable in half a day. The query leads to correct results, but could be faster. Reasons are the contraction, which is not complete and an unoptimized query. Ideas to go on are given.
 
 ## References

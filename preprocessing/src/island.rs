@@ -10,6 +10,9 @@ use crate::generate_graph::{MOST_SOUTHERN_LAT_IN_SEA, point_in_polygon_test};
 pub const GRID_DIVISIONS: [usize; 36] = [3,9,16,22,28,33,39,44,49,53,57,61,64,67,69,70,71,72,72,71,70,69,67,64,61,57,53,49,44,39,33,28,22,16,9,3];
 const GRID_DISTANCE: f32 = 180.0 / GRID_DIVISIONS.len() as f32;
 
+/**
+ * enum to define if a grid cell is completely filled with water, completely filled with land or contains water and land
+ */
 #[derive(Clone)]
 pub enum GridCell<'a> {
     WATER,

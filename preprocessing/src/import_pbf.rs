@@ -4,7 +4,8 @@ use std::fs;
 use rayon::prelude::*;
 
 
-/* filters ways for tag coastline and then searches for coordinates of referenced nodes
+/**
+ * filters ways for tag coastline and then searches for coordinates of referenced nodes
  */
 pub fn import_pbf(path: &str, prefix: &str) -> Result<(), Box<dyn Error>> {
     println!("1/4: Read and filter OSM ways with tag 'coastline'...");
@@ -37,6 +38,10 @@ pub fn import_pbf(path: &str, prefix: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/**
+ * save list of coordinates in geojson formatted file;
+ * writes in 4 file to enable multithreading
+ */
 pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f32>>>, prefix: &str, reduce: bool) {
     coastlines.sort_by(|a,b| b.len().cmp(&a.len()));
     if reduce {
@@ -49,6 +54,7 @@ pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f32>>>, prefix: &str, reduce: b
     
     let empty_vec = vec![];
 
+    // split islands in 4 lists to make parallel file writing possible
     let continents = if coastlines.len() > N_CONTINENTS {&coastlines[..N_CONTINENTS]} else {&coastlines[..coastlines.len()]};
     let big_islands = if coastlines.len() < N_CONTINENTS {&empty_vec} else {
         if coastlines.len() > N_BIG_ISLANDS {&coastlines[N_CONTINENTS..N_BIG_ISLANDS]} else {&coastlines[N_CONTINENTS..coastlines.len()]}
@@ -71,7 +77,9 @@ pub fn print_geojson(mut coastlines: Vec<Vec<Vec<f32>>>, prefix: &str, reduce: b
     println!("Exit parallel");
 }
 
-
+/**
+ * for developement to allow faster file reads and faster point in polygon tests
+ */
 fn reduces_coastlines(mut coastlines: Vec<Vec<Vec<f32>>>) -> Vec<Vec<Vec<f32>>> {
     return coastlines.par_iter_mut().filter(|a| a.len() > 400).map(|a| {
             let mut reduced_line: Vec<Vec<f32>> = a.iter().step_by(100).map(|a| a.to_owned()).collect();
@@ -80,8 +88,9 @@ fn reduces_coastlines(mut coastlines: Vec<Vec<Vec<f32>>>) -> Vec<Vec<Vec<f32>>> 
     }).collect()
 }
 
-/* reads and filters the ways with tag coastline
-returns: list of references to nodes
+/**
+ *  reads and filters the ways with tag coastline
+ * returns: list of references to nodes
  */
 fn read_coastline(path: &str) -> Vec<Vec<i64>> {
     let reader = ElementReader::from_path(path);
@@ -114,7 +123,8 @@ fn read_coastline(path: &str) -> Vec<Vec<i64>> {
 }
 
 
-/* read coordinates of point ids from ways as vectors
+/**
+ *  read coordinates of point ids from ways as vectors
  */
 fn read_coordinates(path: &str, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f32, f32)> {
     let reader = ElementReader::from_path(path);
@@ -123,7 +133,7 @@ fn read_coordinates(path: &str, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f32, f32)
         return way_a
     }).unwrap().into_iter().collect();   //refs of nodes into HashSet
 
-    match reader.unwrap().par_map_reduce(   // TODO: try with vector instead HashMap and construct HashMap afterwards
+    match reader.unwrap().par_map_reduce(
         |element| {
             match element {
                 Element::DenseNode(node) => {
@@ -150,7 +160,9 @@ fn read_coordinates(path: &str, ways: &Vec<Vec<i64>>) -> HashMap<i64, (f32, f32)
     };
 }
 
-
+/**
+ * connect list of coastline edges to islands and continents
+ */
 pub fn connect_coastlines(ways: Vec<Vec<i64>>) -> Vec<Vec<i64>> {
     let mut start_nodes: HashMap<i64, Vec<i64>> = HashMap::new();  // refers to incomplete_coastlines
     let mut end_nodes: HashMap<i64, Vec<i64>> = HashMap::new();    // refers to incomplete_coastlines

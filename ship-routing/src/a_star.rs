@@ -2,18 +2,21 @@ use std::time::SystemTime;
 use crate::binary_minheap::BinaryMinHeap;
 use graph_lib::{ShortestPathResult, Graph, Node};
 
-/// Run a A* from the source coodinates to the target coordinates
+/**
+ * Run a A* from the source coodinates to the target coordinates
+*/
 pub fn run_a_star(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPathResult {
-
     let now = SystemTime::now();
     
-    let mut heuristic_dists = HeuristicalDistances::init(graph.n_nodes(), src_node.id, src_node.distance_to_node(tgt_node).floor() as u32);
-
+    // intialize heuristic and result
+    let mut heuristic_dists = HeuristicalDistances::init(
+        graph.n_nodes(), src_node.id, src_node.distance_to_node(tgt_node).floor() as u32
+    );
     let mut priority_queue = BinaryMinHeap::with_capacity(graph.n_nodes());
     priority_queue.push(src_node.id, &heuristic_dists.g_plus_h);
-
     let mut visited_nodes = 0;
 
+    // iterate until tgt_node is the best priority, which means no shorter way can be found anymore; or no way can be found anymore
     while !priority_queue.is_empty() {
         let node_id = priority_queue.pop(&heuristic_dists.g_plus_h);
         if node_id == tgt_node.id {
@@ -32,18 +35,22 @@ pub fn run_a_star(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPa
     }
 }
 
-/// Process the outgoing edges of the node with id `node_id`
-fn process_edges(graph: &Graph, node_id: usize, heuristic_dists: &mut HeuristicalDistances, pq: &mut BinaryMinHeap, tgt_node: &Node) {
-    let central_node_dist = heuristic_dists.g_plus_h[node_id] - heuristic_dists.heuristic[node_id];
-    for edge in graph.get_outgoing_edges(node_id) {
+/**
+ * visits a node, which means it processes all its edges and updates the function g(a)+h(a) of all neighbours
+*/
+fn process_edges(graph: &Graph, visiting_node_id: usize, heuristic_dists: &mut HeuristicalDistances, pq: &mut BinaryMinHeap, tgt_node: &Node) {
+    let visiting_node_dist = heuristic_dists.g_plus_h[visiting_node_id] - heuristic_dists.heuristic[visiting_node_id];
+    for edge in graph.get_outgoing_edges(visiting_node_id) {
+        // if not calculated already, the heuristic is calculated here
         if heuristic_dists.heuristic[edge.tgt] == u32::MAX {
             heuristic_dists.heuristic[edge.tgt] = graph.get_node(edge.tgt).distance_to_node(tgt_node).floor() as u32;
         }
-        let neighbour_node_dist = central_node_dist + edge.dist + heuristic_dists.heuristic[edge.tgt];
+        let neighbour_node_dist = visiting_node_dist + edge.dist + heuristic_dists.heuristic[edge.tgt];
 
+        // if way over visiting node is the best so far, the neighbour will be updated
         if neighbour_node_dist < heuristic_dists.g_plus_h[edge.tgt] {
             heuristic_dists.g_plus_h[edge.tgt] = neighbour_node_dist;
-            heuristic_dists.preds[edge.tgt] = node_id;
+            heuristic_dists.preds[edge.tgt] = visiting_node_id;
 
             pq.insert_or_update(edge.tgt, &heuristic_dists.g_plus_h);
         }

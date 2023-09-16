@@ -4,6 +4,11 @@ use rand::{rngs::StdRng, SeedableRng};
 
 use crate::{generate_graph::{read_geojsons, point_on_land_test, random_point_on_sphere}, island::{Island, GRID_DIVISIONS, GridCell}};
 
+/**
+ * A function to test the some static point in polygon tests
+ * With this the time of a single test and multiple random tests were made to measure qualitity of the algorithm
+ * The predefined coordinates can be also used to check the correctness
+ */
 pub fn static_polygon_tests(import_prefix: &str) {
 
     println!("1/?: Read GeoJSONs parallel ...");

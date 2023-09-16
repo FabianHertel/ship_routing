@@ -19,6 +19,7 @@ impl Coordinates {
         return Coordinates(split[0].parse::<f32>().unwrap(), split[1].parse::<f32>().unwrap());
     }
 
+    #[inline]
     pub fn distance_to(&self, y: &Coordinates) -> f32 {
         return distance_between(self.0, self.1, y.0, y.1);
     }
@@ -31,8 +32,9 @@ impl Display for Coordinates {
 }
 
 /**
- * dicstance in m as f32
+ * direct distance in m as f32 on surface
  */
+#[inline]
 pub fn distance_between(lon1:f32, lat1:f32, lon2:f32, lat2:f32) -> f32 {
     // from: http://www.movable-type.co.uk/scripts/latlong.html
     let φ1 = lat1 * PI/180.0; // φ, λ in radians
@@ -46,7 +48,9 @@ pub fn distance_between(lon1:f32, lat1:f32, lon2:f32, lat2:f32) -> f32 {
     return distance;
 }
 
-/// An undirected graph
+/**
+ * undirected graph, saved in vectors of nodes, edges and offsets
+ */
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Graph {
     pub nodes: Vec<Node>,
@@ -59,6 +63,9 @@ impl Graph {
         Graph { nodes: self.nodes.clone(), edges: self.edges.clone(), offsets: self.offsets.clone() }
     }
     
+    /**
+     * needed to find starting node
+     */
     pub fn closest_node(&self, point: &Coordinates) -> &Node {
         let mut closest_node = &self.nodes[0];
         let mut closest_dist = f32::MAX;
@@ -91,6 +98,10 @@ impl Graph {
         &self.edges[self.offsets[node_id]..self.offsets[node_id + 1]]
     }
 
+    /**
+     * generates a subgraph, which contains only the nodes with given ids
+     * needed for development and testing
+     */
     pub fn subgraph(&self, node_list: Vec<usize>) -> Graph {
         let mut new_nodes: Vec<Node> = vec![];
         let mut new_edges: Vec<Edge> = vec![];
@@ -114,6 +125,9 @@ impl Graph {
         return Graph { nodes: new_nodes, edges: new_edges, offsets: new_offsets }
     }
 
+    /**
+     * useful for displaying graph on geojson.io
+     */
     pub fn nodes_to_clipboard(&self) {
         let mut the_string = "[".to_string();
         the_string += &self.nodes.iter().map(|node| format!("[{},{}]", node.lon, node.lat)).reduce(|e,f| e + "," + &f).unwrap();
@@ -122,6 +136,9 @@ impl Graph {
         assert_eq!(cli_clipboard::get_contents().unwrap(), the_string);
     }
 
+    /**
+     * useful for displaying graph on geojson.io
+     */
     pub fn edges_to_clipboard(&self) {
         let mut the_string = "[".to_string();
         the_string += &self.edges.iter().map(|edge| format!("[[{},{}],[{},{}]]", self.nodes[edge.src].lon, self.nodes[edge.src].lat, self.nodes[edge.tgt].lon, self.nodes[edge.tgt].lat)).reduce(|e,f| e + "," + &f).unwrap();

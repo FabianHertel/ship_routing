@@ -2,7 +2,9 @@ use std::time::SystemTime;
 use crate::binary_minheap::BinaryMinHeap;
 use graph_lib::{ShortestPathResult, Graph, Node};
 
-/// Run a bidirectional Dijkstra from the source coodinates to the target coordinates
+/**
+ * Run a bidirectional Dijkstra from the source coodinates to the target coordinates
+*/ 
 pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Graph, symmetric: bool) -> ShortestPathResult {
     if src_node.id == tgt_node.id {
         return ShortestPathResult {calculation_time: 0, distance: 0, path: Some(vec![src_node.clone()]), visited_nodes: 0};
@@ -10,10 +12,12 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
 
     let now = SystemTime::now();
     
+    // init forward priority and result structure
     let mut dijkstra_forward = DijkstraDistances::init(graph.n_nodes(), src_node.id);
     let mut priority_queue_forward = BinaryMinHeap::with_capacity(graph.n_nodes());
     priority_queue_forward.push(src_node.id, &dijkstra_forward.dists);
 
+    // init backward priority and result structure
     let mut dijkstra_backward = DijkstraDistances::init(graph.n_nodes(), tgt_node.id);
     let mut priority_queue_backward = BinaryMinHeap::with_capacity(graph.n_nodes());
     priority_queue_backward.push(tgt_node.id, &dijkstra_backward.dists);
@@ -22,13 +26,18 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
     let mut result_dist = u32::MAX;
     let mut node_id_middle = None;
 
+    // iterate until best way found or no way can be found anymore
+    // conditions depend on if it is symmetric or not
     while !priority_queue_forward.is_empty() && !priority_queue_backward.is_empty() {
+        // chose visiting node forward and backward
         let node_id_forward = priority_queue_forward.pop(&dijkstra_forward.dists);
         let node_id_backward = priority_queue_backward.pop(&dijkstra_backward.dists);
         dijkstra_forward.visited[node_id_forward] = true;
         dijkstra_backward.visited[node_id_backward] = true;
         let forward_dist = dijkstra_forward.dists[node_id_forward];
         let backward_dist = dijkstra_backward.dists[node_id_backward];
+
+        // if no faster solution can be found anymore, break here
         if symmetric {
             if forward_dist + backward_dist >= result_dist {
                 break;
@@ -39,6 +48,7 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
             }
         }
 
+        // process forward, similar to Dijkstra
         if forward_dist < result_dist {
             for edge in graph.get_outgoing_edges(node_id_forward) {
                 let edge_tgt_dist = forward_dist + edge.dist;
@@ -57,6 +67,7 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
             }
         }
 
+        // process backward, similar to Dijkstra
         if backward_dist < result_dist {
             for edge in graph.get_outgoing_edges(node_id_backward) {
                 let edge_tgt_dist = backward_dist + edge.dist;
@@ -76,6 +87,7 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
         }
     }
 
+    // return result
     let result_path = match node_id_middle {
     Some(node_id) => {
             let mut path_forward = dijkstra_forward.build_path(graph, node_id).unwrap();

@@ -10,7 +10,10 @@ struct Route {
     description: String
 }
 
-// DEPENDS ON THE GRAPH
+/**
+ * Here all routings can be tested for a given graph. It will use some predefined start and end points
+ * Distance DEPENDS ON THE GRAPH
+ */ 
 pub fn test_samples(graph: &Graph, ch_graph: &Graph) {
     let coords_med_to_red_sea = Route {
         start: Coordinates(28.677027, 33.622692),

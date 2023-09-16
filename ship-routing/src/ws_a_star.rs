@@ -3,20 +3,24 @@ use std::{collections::HashMap, cell::RefCell};
 use crate::{binary_minheap_map::BinaryMinHeapMap, ch::CHGraph};
 use graph_lib::Coordinates;
 
-/// Run a A* from the source coodinates to the target coordinates
+/**
+ * Run a A* as witness search
+ */ 
 #[inline]
 pub fn ws_a_star(src: usize, tgt: usize, ch_graph: &CHGraph, edge_sum: u32, btw_node: usize, a_star_object: &AStartObject) -> bool {
-    
     let tgt_coordinates = ch_graph.borrow_node(tgt).coordinades;
-
+    // clear and init priority queue and heuristic
     a_star_object.0.borrow_mut().clear(src, tgt, ch_graph.borrow_node(src).coordinades.distance_to(&tgt_coordinates).floor() as u32);
     a_star_object.1.borrow_mut().clear();
     a_star_object.1.borrow_mut().push(src, &a_star_object.0.borrow().g_plus_h);
 
+    // while priority queue is not empty
     while !a_star_object.1.borrow().is_empty() {
         let node_id = a_star_object.1.borrow_mut().pop(&a_star_object.0.borrow().g_plus_h);
+
+        // breaks if best path was found or no faster way than the sum the 2 edges exists or one path is found which is shorter than the 2 edges
         if node_id == tgt || a_star_object.0.borrow().g_plus_h[&node_id] > edge_sum || a_star_object.0.borrow().g_plus_h[&tgt] < edge_sum {
-            break;
+            break;      
         } else {
             process_edges(ch_graph, node_id, a_star_object, &tgt_coordinates, btw_node);
         }
@@ -25,7 +29,9 @@ pub fn ws_a_star(src: usize, tgt: usize, ch_graph: &CHGraph, edge_sum: u32, btw_
     return a_star_object.0.borrow().g_plus_h[&tgt] > edge_sum;
 }
 
-/// Process the outgoing edges of the node with id `node_id`
+/**
+ * Vistits the given node and processes the outgoing edges like in A*
+*/
 #[inline]
 fn process_edges(ch_graph: &CHGraph, node_id: usize, a_star_object: &AStartObject, tgt_coordinates: &Coordinates, btw_node: usize) {
     let central_node_dist = a_star_object.0.borrow().g_plus_h[&node_id] - a_star_object.0.borrow().heuristic[&node_id];
@@ -45,7 +51,9 @@ fn process_edges(ch_graph: &CHGraph, node_id: usize, a_star_object: &AStartObjec
         }
     }
 }
-
+/**
+ * (HeuristicalDistances, BinaryHeapMap)
+ */
 pub type AStartObject = (RefCell<HeuristicalDistances>, RefCell<BinaryMinHeapMap>);
 
 
