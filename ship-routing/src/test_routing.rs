@@ -59,8 +59,8 @@ pub fn test_random_samples_compare_routings(
         let result2 = routing2(start_node, end_node, &graph2);
         assert_eq!(result1.distance, result2.distance);
         println!(
-            "Finished {}th query: both with distance {}; routing 1 in {} ms and routing 2 in {} ms",
-            result1.distance, i, result1.calculation_time, result2.calculation_time
+            "Finished {}th query: both with distance {} m; routing 1 in {} ms and routing 2 in {} ms",
+            i, result1.distance, result1.calculation_time, result2.calculation_time
         );
         summed_time1 += result1.calculation_time;
         summed_time2 += result2.calculation_time;
