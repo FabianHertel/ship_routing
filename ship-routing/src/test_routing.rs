@@ -1,4 +1,4 @@
-use graph_lib::{Graph, Coordinates, ShortestPathResult, random_point::random_point_on_sphere};
+use graph_lib::{Graph, Coordinates, ShortestPathResult, random_point::random_point_in_water, island::{read_geojsons, GridCell, GRID_DIVISIONS, Island}, Node};
 
 use crate::{dijkstra::run_dijkstra, a_star::run_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra, ch::run_ch};
 
@@ -10,69 +10,62 @@ struct Route {
     description: String
 }
 
-pub fn test_random_samples_ch(graph: &Graph) {
+pub fn test_random_samples(graph: &Graph, routing: fn(src: &Node, tgt: &Node, graph: &Graph) -> ShortestPathResult) {
     let mut summed_time = 0;
     let number_of_tests = 1000;
     let mut rng = rand::thread_rng();
+    println!("Import coastline");
+    let coastlines = read_geojsons("complete");
+    println!("Precalulations of islands");
+    let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
+    let mut island_grid: Vec<Vec<GridCell>> = GRID_DIVISIONS.iter().map(|e| vec![GridCell::WATER; *e]).collect();
+    islands.iter().for_each(|island| island.add_to_grid(&mut island_grid));
+
+    println!("Start tests");
     for i in 0..number_of_tests {
-        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let (lon, lat) = &random_point_in_water(&mut rng, &island_grid);
         let start_node = graph.closest_node(&Coordinates(*lon, *lat));
-        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let (lon, lat) = &random_point_in_water(&mut rng, &island_grid);
         let end_node = graph.closest_node(&Coordinates(*lon, *lat));
-        let result = run_ch(start_node, end_node, &graph);
+        let result = routing(start_node, end_node, &graph);
         println!("Finished {}th query in {} ms", i, result.calculation_time);
         summed_time += result.calculation_time;
     }
     println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
 }
 
-pub fn test_random_samples_a_star(graph: &Graph) {
-    let mut summed_time = 0;
+pub fn test_random_samples_compare_routings(
+    graph1: &Graph, routing1: fn(src: &Node, tgt: &Node, graph: &Graph) -> ShortestPathResult,
+    graph2: &Graph, routing2: fn(src: &Node, tgt: &Node, graph: &Graph) -> ShortestPathResult
+) {
+    let mut summed_time1 = 0;
+    let mut summed_time2 = 0;
     let number_of_tests = 1000;
     let mut rng = rand::thread_rng();
-    for i in 0..number_of_tests {
-        let (lon, lat) = &random_point_on_sphere(&mut rng);
-        let start_node = graph.closest_node(&Coordinates(*lon, *lat));
-        let (lon, lat) = &random_point_on_sphere(&mut rng);
-        let end_node = graph.closest_node(&Coordinates(*lon, *lat));
-        let result = run_a_star(start_node, end_node, &graph);
-        println!("Finished {}th query in {} ms", i, result.calculation_time);
-        summed_time += result.calculation_time;
-    }
-    println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
-}
+    println!("Import coastline");
+    let coastlines = read_geojsons("complete");
+    println!("Precalulations of islands");
+    let islands: Vec<Island> = coastlines.iter().map(|e| Island::new(e.to_owned())).collect();
+    let mut island_grid: Vec<Vec<GridCell>> = GRID_DIVISIONS.iter().map(|e| vec![GridCell::WATER; *e]).collect();
+    islands.iter().for_each(|island| island.add_to_grid(&mut island_grid));
 
-
-pub fn test_random_samples_bd(graph: &Graph) {
-    let mut summed_time = 0;
-    let number_of_tests = 1000;
-    let mut rng = rand::thread_rng();
+    println!("Start tests");
     for i in 0..number_of_tests {
-        let (lon, lat) = &random_point_on_sphere(&mut rng);
-        let start_node = graph.closest_node(&Coordinates(*lon, *lat));
-        let (lon, lat) = &random_point_on_sphere(&mut rng);
-        let end_node = graph.closest_node(&Coordinates(*lon, *lat));
-        let result = run_bidirectional_dijkstra(start_node, end_node, &graph, true);
-        println!("Finished {}th query in {} ms", i, result.calculation_time);
-        summed_time += result.calculation_time;
+        let (lon, lat) = &random_point_in_water(&mut rng, &island_grid);
+        let start_node = graph1.closest_node(&Coordinates(*lon, *lat));
+        let (lon, lat) = &random_point_in_water(&mut rng, &island_grid);
+        let end_node = graph1.closest_node(&Coordinates(*lon, *lat));
+        let result1 = routing1(start_node, end_node, &graph1);
+        let result2 = routing2(start_node, end_node, &graph2);
+        assert_eq!(result1.distance, result2.distance);
+        println!(
+            "Finished {}th query: both with distance {}; routing 1 in {} ms and routing 2 in {} ms",
+            result1.distance, i, result1.calculation_time, result2.calculation_time
+        );
+        summed_time1 += result1.calculation_time;
+        summed_time2 += result2.calculation_time;
     }
-    println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
-}
-
-pub fn test_random_samples_dijkstra(graph: &Graph) {
-    let mut summed_time = 0;
-    let number_of_tests = 1000;
-    let mut rng = rand::thread_rng();
-    for i in 0..number_of_tests {
-        let (lon, lat) = &random_point_on_sphere(&mut rng);
-        let start_node = graph.closest_node(&Coordinates(*lon, *lat));
-        let (lon, lat) = &random_point_on_sphere(&mut rng);
-        let end_node = graph.closest_node(&Coordinates(*lon, *lat));
-        let result = run_dijkstra(start_node, end_node, &graph);
-        println!("Finished {}th query in {} ms", i, result.calculation_time);
-        summed_time += result.calculation_time;
-    }
-    println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
+    println!("Performed {} queries in averages: routint 1 in {} ms, routing 2 in {} ms", number_of_tests, summed_time1 / number_of_tests, summed_time2 / number_of_tests);
 }
 
 /**
