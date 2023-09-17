@@ -45,6 +45,8 @@ pub fn test_random_samples_compare_routings(
 ) {
     let mut summed_time1 = 0;
     let mut summed_time2 = 0;
+    let mut summed_visited_nodes1 = 0;
+    let mut summed_visited_nodes2 = 0;
     let mut different_results = 0;
     let number_of_tests = 1000;
     let mut rng = rand::thread_rng();
@@ -73,8 +75,14 @@ pub fn test_random_samples_compare_routings(
         );
         summed_time1 += result1.calculation_time;
         summed_time2 += result2.calculation_time;
+        summed_visited_nodes1 += result1.visited_nodes;
+        summed_visited_nodes2 += result2.visited_nodes;
     }
-    println!("Performed {} queries in averages: routing 1 in {} ms, routing 2 in {} ms", number_of_tests, summed_time1 / number_of_tests, summed_time2 / number_of_tests);
+    println!(
+        "Performed {} queries in averages: routing 1 in {} ms with {} visited nodes, routing 2 in {} ms with {} visited nodes", 
+        number_of_tests, summed_time1 / number_of_tests, summed_time2 / number_of_tests, summed_visited_nodes1 / number_of_tests as u32,
+        summed_visited_nodes2 / number_of_tests as u32
+    );
     if different_results > 0 {
         println!("BUT {} routings failed", different_results);
     }

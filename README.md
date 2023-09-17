@@ -103,8 +103,10 @@ The time is measured on a i7-6500U CPU.
 2. Import PBF: Execute ´cargo run -p preprocessing import {filename}´ in root folder (approx. 8 min)
 3. Generate Graph: Execute ´cargo run -p preprocessing generate´ (approx. 23 min)
 4. Preprocessing CH: execute ´cargo run -p ship-routing ch_precalc {graphname} {nodelimit}´ (approx. 6 h for 75% of the nodes)
+
 To continue last session of contraction hierarchie precalculations: execute ´cargo run -p ship-routing continue_ch_precalc {graphname} {nodelimit}´.
 The _graphname_ (default=´graph´) will load the _graphname_.bin or _graphname_.fmi as graph. The _nodelimit_ (default=1) defines when to stop the contraction.
+There is a temp file of the 18% contraction in the repo, so you can go on with the contraction.
 
 #### Execution
 execute ´cargo run -p ship-routing di´ for Dijkstra
@@ -121,69 +123,72 @@ execution: run exe file in .\target\debug\ship-routing.exe (wich executes the CH
 ### Results
 To test all four routing queries on a given set of challenges, you can run ´cargo run -p ship-routing test_static´. 
 To test one routing with 1000 random points in water, run ´cargo run -p ship-routing test_{routing}´ with routing = di|bd|a*|cha|chd
-Or execute ´cargo run -p ship-routing test_a*_{routing}´ with routing = di|cha to compare A* with one of the other. Correctness and speed are considered.
+Or execute ´cargo run -p ship-routing test_{routing}_{routing}´ with routing = di|bd|a*|cha|chd to compare (but not all combinations available). Correctness and speed are considered.
 
-I have following results on the graph of 4000000 nodes
-Dijkstra: 9093 ms
-Bidirectional Dijkstra: 4460 ms
-A*: 1904 ms
-CH Dijkstra: 3594 ms
-CH A*: 2168 ms
+I have following averaged results on the graph of 4000000 nodes
+| Query   |      Time      |  Visited nodes |
+|----------|-------------:|------:|
+Dijkstra|               9093 ms |   2177212
+Bidirectional Dijkstra| 4460 ms |   1521195
+A*|                     1904 ms |   366062
+CH Dijkstra|            3594 ms |   852039
+CH A*|                  2168 ms |   258392
 
-Some specific examples with time in ms:
+Some specific examples (time in ms):
 
 Routing from Mediterrian Sea to Red Sea:
 | Query   |      Time      |  Visited nodes |
 |----------|-------------:|------:|
 DI      |14015   |3513994
 A*      |4870    |1045569
-BD      |7003    |8599255
+BD      |7003    |1581742
 CH_A    |3232    |484706
-CH_D    |9170    |21522339
+CH_D    |9170    |1310850
 
 Routing from Mediterrian Sea to Black Sea:
 | Query   |      Time      |  Visited nodes |
 |----------|-------------:|------:|
 DI      |342     |15406
 A*      |356     |2648
-BD      |553     |76373
+BD      |553     |14208
 CH_A    |725     |3159
-CH_D      |591     |85465
+CH_D      |591     |5520
 
 Routing from Indic to Pacific over Indonesia:
 | Query   |      Time      |  Visited nodes |
 |----------|-------------:|------:|
 DI      |4993    |804883
 A*      |965     |55884
-BD      |4408    |2909902
+BD      |4408    |534864
 CH_A    |1026    |73290
-CH_D      |3787    |4786017
+CH_D      |3787    |293308
 
 Routing from Atlantic to Indic around Afrika:
 | Query   |      Time      |  Visited nodes |
 |----------|-------------:|------:|
 DI      |19622   |3178215
 A*      |7980    |730913
-BD      |13712   |10979894
+BD      |13712   |2019902
 CH_A    |3147    |445784
-CH_D      |7878    |19471214
+CH_D      |7878    |1187121
 
 Routing from 177°W to 155°E, over the date border:
 | Query   |      Time      |  Visited nodes |
 |----------|-------------:|------:|
 DI      |968     |220752
 A*      |389     |14420
-BD      |896     |613514
+BD      |896     |112562
 CH_A    |746     |16573
-CH_D      |949     |1376855
+CH_D    |949     |83334
 
-So far CH with A* is not better then just A*. There are some reasons to get more performance:
-1. CH with A* query looses much of time in the initialization, it has to initialize 8 vectors of length 4000000; This takes on my machine about 700ms
-2. The contraction went only up to 82%
+So far CH with A* is not better in time then just A*. But the number of visited nodes is lower. I see two reasons for the slow CH query:
+1. CH with A* query need much of time for initialization, it has to initialize 8 vectors of length 4000000; This takes on my machine about 800ms
+2. The contraction went only up to 82%. With more contraction the advantages of CH get stronger.
+
 So the results can be optimized by more preprocessing time and ways to reduce initalization time of the query.
 
 ## Conclusion
-For the graph generation much of effort was put to reach comfortable time for calculating new graphs.
+For the graph generation, much of effort was put to reach comfortable time for calculating new graphs.
 For the routing, I implemented 4 additional queries next to basic Dijkstra. Bidirectional Dijkstra gives optimizes for the most cases a bit. Better results are offered by A*. By an easy implementation strong performance gain can be reached. In average it more than 4 times faster
 The contraction hierarchies algorithm is implemented with preprocessing and query. The contraction takes long, but contracting ~80% feasable in half a day. The query leads to correct results, but could be faster. Reasons are the contraction, which is not complete and an unoptimized query. Ideas to go on are given.
 
