@@ -32,7 +32,7 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
     
     unsafe {
         let (src_node, tgt_node) = match ROUTING {
-            Routing::CH | Routing::ASTAR => (CH_GRAPH.as_ref().unwrap().closest_node(&src_coordinates), CH_GRAPH.as_ref().unwrap().closest_node(&tgt_coordinates)),
+            Routing::CH | Routing::ChAStar => (CH_GRAPH.as_ref().unwrap().closest_node(&src_coordinates), CH_GRAPH.as_ref().unwrap().closest_node(&tgt_coordinates)),
             _ => (GRAPH.as_ref().unwrap().closest_node(&src_coordinates), GRAPH.as_ref().unwrap().closest_node(&tgt_coordinates)),
         };
         // println!("Routing from {:?} to {:?}", src_node, tgt_node);
