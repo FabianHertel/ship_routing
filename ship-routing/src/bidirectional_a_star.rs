@@ -146,11 +146,11 @@ impl HeuristicalDistances {
     pub fn build_path(&self, graph: &Graph, tgt_id: usize) -> Option<Vec<Node>> {
         if !self.preds.contains_key(&tgt_id) {return None}
         let mut path = vec![];
-        let mut curr_pred = tgt_id;
+        let mut curr_pred = Some(&tgt_id);
         // source node has no predecessor
-        while curr_pred < usize::MAX {
-            path.push(graph.get_node(curr_pred).clone());
-            curr_pred = *self.preds.get(&curr_pred).unwrap();
+        while curr_pred.is_some() {
+            path.push(graph.get_node(*curr_pred.unwrap()).clone());
+            curr_pred = self.preds.get(&curr_pred.unwrap());
         }
         path.reverse();
         return Some(path)
