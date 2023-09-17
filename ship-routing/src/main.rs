@@ -101,6 +101,20 @@ fn main() {
                         unsafe { GRAPH.as_ref().unwrap() }, run_a_star, unsafe {GRAPH.as_ref().unwrap()}, run_dijkstra
                     );
                 }
+                Some("test_bd_di") => {
+                    import_basic_graph(&filename);
+                    test_random_samples_compare_routings(
+                        unsafe { GRAPH.as_ref().unwrap() },
+                         |a,b,c| run_bidirectional_dijkstra(a,b,c,true), 
+                         unsafe {GRAPH.as_ref().unwrap()}, run_dijkstra
+                    );
+                }
+                Some("test_cha_chd") => {
+                    import_ch_graph(&filename);
+                    test_random_samples_compare_routings(
+                        unsafe { CH_GRAPH.as_ref().unwrap() }, run_ch_a_star, unsafe {CH_GRAPH.as_ref().unwrap()}, run_ch_dijkstra
+                    );
+                }
                 Some("test_static") => {
                     import_basic_graph(&filename);
                     import_ch_graph(&filename);

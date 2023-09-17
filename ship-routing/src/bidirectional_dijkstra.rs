@@ -62,9 +62,9 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
                     result_dist = edge_tgt_dist + dijkstra_backward.dists[edge.tgt];
                     node_id_middle = Some(edge.tgt);
                 }
-                visited_nodes += 1;
                 // println!("forward: {}, {}, {}, {}, {}", edge.src, forward_dist, edge.tgt, edge.dist, result_dist);
             }
+            visited_nodes += 1;
         }
 
         // process backward, similar to Dijkstra
@@ -81,9 +81,9 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
                     result_dist = edge_tgt_dist + dijkstra_forward.dists[edge.tgt];
                     node_id_middle = Some(edge.tgt);
                 }
-                visited_nodes += 1;
                 // println!("backward: {}, {}, {}, {}, {}", edge.src, backward_dist, edge.tgt, edge.dist, result_dist);
             }
+            visited_nodes += 1;
         }
     }
 
