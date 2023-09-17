@@ -88,10 +88,8 @@ Further speedups will be probably needed to get close to 100%. One idea is to sa
 To test the contraction hierarchies algorithm completely I run it on a subgraph, containing only the black sea, which showed good results. If the graph of the black sea is present, it can be run by specifying _black sea_ after the cli command as the graph name (e.g. ´cargo run -p ship-routing test black_sea´ or ´cargo run -p ship-routing ch black_sea´).
 
 #### Query
-The query is just a reuse of the bidirectional Dijkstra on the upwarded directed graph out of the preprocessing. The only difference is, that now it should be payed attention, that this graph has arcs instead of bidirectional edges.
-To get a higher query performance a bidirectional A* could be implemented.
-
-
+There are two queries implemented. One is just a bidirectional Dijkstra and the other one is a bidirectional A* routing.
+The A* routing offers the better results, due to well working distance heuristic.
 
 ## Run and compile
 ### Fast Execution
@@ -112,7 +110,8 @@ The _graphname_ (default=´graph´) will load the _graphname_.bin or _graphname_
 execute ´cargo run -p ship-routing di´ for Dijkstra
 execute ´cargo run -p ship-routing bd´ for bidirectional Dijkstra
 execute ´cargo run -p ship-routing a*´ for A*
-execute ´cargo run -p ship-routing ch´ for Contraction Hierarchies query
+execute ´cargo run -p ship-routing cha´ for A* query on the CH graph
+execute ´cargo run -p ship-routing chd´ for Dijkstra query on the CH graph
 
 or
 
@@ -120,16 +119,18 @@ Copy graph.fmi/ch_graph.bin file into .\target\debug\data\graph\
 execution: run exe file in .\target\debug\ship-routing.exe (wich executes the CH query)
 
 ### Results
-To test all four routing queries on a given set of challenges, you can run ´cargo run -p ship-routing test´. I got following results (Time in ms):
-Executed by ´cargo run -p ship-routing test_{routing}´ with routing = di|bd|a*|cha|chd
+To test all four routing queries on a given set of challenges, you can run ´cargo run -p ship-routing test_static´. 
+To test one routing with 1000 random points in water, run ´cargo run -p ship-routing test_{routing}´ with routing = di|bd|a*|cha|chd
 Or execute ´cargo run -p ship-routing test_a*_{routing}´ with routing = di|cha to compare A* with one of the other. Correctness and speed are considered.
 
+I have following results
 Dijkstra: 9093 ms
 Bidirectional Dijkstra: 4460 ms
-A*: 1716 ms
-Contrachtion Hierarchies: 3594 ms
+A*: 1904 ms
+CH Dijkstra: 3594 ms
+CH A*: 2168 ms
 
-Some specific examples
+Some specific examples with time in ms:
 
 Routing from Mediterrian Sea to Red Sea:
 | Query   |      Time      |  Visited nodes |
@@ -176,14 +177,14 @@ BD      |896     |613514
 CH_A    |746     |16573
 CH_D      |949     |1376855
 
-Unfortunately CH can't give always the best results. I explain it so far with mostly following reasons:
-1. The contraction went only up to 82%
-2. Potential of the query to be faster, for example using bidirectional A*
-Even if CH is the fastest, for example for routing 4 (from Atlantic to Indic around Afrika), it visits the most nodes. I am sure this can be optimized by a better query.
+So far CH with A* is not better then just A*. There are some reasons to get more performance:
+1. CH with A* query looses much of time in the initialization, it has to initialize 8 vectors of length 4000000
+2. The contraction went only up to 82%
+So the results can be optimized by more preprocessing time and ways to reduce initalization time of the query.
 
 ## Conclusion
 For the graph generation much of effort was put to reach comfortable time for calculating new graphs.
-For the routing, I implemented 3 additional queries next to basic Dijkstra. Bidirectional Dijkstra gives optimizes for the most cases a bit. Better results are offered by A*. By an easy implementation strong performance gain can be reached. Often we are 3 to 5 times faster than the basic Dijkstra.
+For the routing, I implemented 4 additional queries next to basic Dijkstra. Bidirectional Dijkstra gives optimizes for the most cases a bit. Better results are offered by A*. By an easy implementation strong performance gain can be reached. In average it more than 4 times faster
 The contraction hierarchies algorithm is implemented with preprocessing and query. The contraction takes long, but contracting ~80% feasable in half a day. The query leads to correct results, but could be faster. Reasons are the contraction, which is not complete and an unoptimized query. Ideas to go on are given.
 
 ## References
