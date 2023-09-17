@@ -123,7 +123,7 @@ To test all four routing queries on a given set of challenges, you can run ´car
 To test one routing with 1000 random points in water, run ´cargo run -p ship-routing test_{routing}´ with routing = di|bd|a*|cha|chd
 Or execute ´cargo run -p ship-routing test_a*_{routing}´ with routing = di|cha to compare A* with one of the other. Correctness and speed are considered.
 
-I have following results
+I have following results on the graph of 4000000 nodes
 Dijkstra: 9093 ms
 Bidirectional Dijkstra: 4460 ms
 A*: 1904 ms
