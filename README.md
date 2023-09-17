@@ -121,8 +121,8 @@ execution: run exe file in .\target\debug\ship-routing.exe (wich executes the CH
 
 ### Results
 To test all four routing queries on a given set of challenges, you can run ´cargo run -p ship-routing test´. I got following results (Time in ms):
-Executed by ´cargo run -p ship-routing test_{routing}´ with routing = di|bd|a*|ch
-Or execute ´cargo run -p ship-routing test_a*_{routing}´ with routing = di|ch to compare A* with one of the other. Correctness and speed are considered.
+Executed by ´cargo run -p ship-routing test_{routing}´ with routing = di|bd|a*|cha|chd
+Or execute ´cargo run -p ship-routing test_a*_{routing}´ with routing = di|cha to compare A* with one of the other. Correctness and speed are considered.
 
 Dijkstra: 9093 ms
 Bidirectional Dijkstra: 4460 ms
@@ -137,7 +137,8 @@ Routing from Mediterrian Sea to Red Sea:
 DI      |14015   |3513994
 A*      |4870    |1045569
 BD      |7003    |8599255
-CH      |9170    |21522339
+CH_A    |3232    |484706
+CH_D    |9170    |21522339
 
 Routing from Mediterrian Sea to Black Sea:
 | Query   |      Time      |  Visited nodes |
@@ -145,7 +146,8 @@ Routing from Mediterrian Sea to Black Sea:
 DI      |342     |15406
 A*      |356     |2648
 BD      |553     |76373
-CH      |591     |85465
+CH_A    |725     |3159
+CH_D      |591     |85465
 
 Routing from Indic to Pacific over Indonesia:
 | Query   |      Time      |  Visited nodes |
@@ -153,7 +155,8 @@ Routing from Indic to Pacific over Indonesia:
 DI      |4993    |804883
 A*      |965     |55884
 BD      |4408    |2909902
-CH      |3787    |4786017
+CH_A    |1026    |73290
+CH_D      |3787    |4786017
 
 Routing from Atlantic to Indic around Afrika:
 | Query   |      Time      |  Visited nodes |
@@ -161,7 +164,8 @@ Routing from Atlantic to Indic around Afrika:
 DI      |19622   |3178215
 A*      |7980    |730913
 BD      |13712   |10979894
-CH      |7878    |19471214
+CH_A    |3147    |445784
+CH_D      |7878    |19471214
 
 Routing from 177°W to 155°E, over the date border:
 | Query   |      Time      |  Visited nodes |
@@ -169,7 +173,8 @@ Routing from 177°W to 155°E, over the date border:
 DI      |968     |220752
 A*      |389     |14420
 BD      |896     |613514
-CH      |949     |1376855
+CH_A    |746     |16573
+CH_D      |949     |1376855
 
 Unfortunately CH can't give always the best results. I explain it so far with mostly following reasons:
 1. The contraction went only up to 82%

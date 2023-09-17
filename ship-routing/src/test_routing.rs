@@ -150,12 +150,12 @@ fn run_routing(graph: &Graph, ch_graph: &Graph, route: Route) {
     let bidirectional_dijkstra = run_bidirectional_dijkstra(src_node, tgt_node, graph, true);
     println!("BD\t{}\t{}", bidirectional_dijkstra.calculation_time, bidirectional_dijkstra.visited_nodes);
     assert_eq_routings(&dijkstra_result, &bidirectional_dijkstra);
-    let ch_result = run_ch_a_star(src_node, tgt_node, ch_graph);
-    println!("CH_A\t{}\t{}", ch_result.calculation_time, ch_result.visited_nodes);
-    assert_eq_routings(&dijkstra_result, &ch_result);
-    let ch_result = run_ch_dijkstra(src_node, tgt_node, ch_graph);
-    println!("CH_D\t{}\t{}", ch_result.calculation_time, ch_result.visited_nodes);
-    assert_eq_routings(&dijkstra_result, &ch_result);
+    let cha_result = run_ch_a_star(src_node, tgt_node, ch_graph);
+    println!("CH_A\t{}\t{}", cha_result.calculation_time, cha_result.visited_nodes);
+    assert_eq_routings(&dijkstra_result, &cha_result);
+    let chd_result = run_ch_dijkstra(src_node, tgt_node, ch_graph);
+    println!("CH_D\t{}\t{}", chd_result.calculation_time, chd_result.visited_nodes);
+    assert_eq_routings(&dijkstra_result, &chd_result);
 }
 
 fn assert_eq_routings(routing_1: &ShortestPathResult, routing_2: &ShortestPathResult) {
