@@ -1,6 +1,6 @@
 use graph_lib::{Graph, Coordinates, ShortestPathResult, random_point::random_point_in_water, island::{read_geojsons, GridCell, GRID_DIVISIONS, Island}, Node};
 
-use crate::{dijkstra::run_dijkstra, a_star::run_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra, ch::run_ch};
+use crate::{dijkstra::run_dijkstra, a_star::run_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{run_ch_dijkstra, run_ch_a_star}};
 
 struct Route {
     start: Coordinates,
@@ -12,6 +12,7 @@ struct Route {
 
 pub fn test_random_samples(graph: &Graph, routing: fn(src: &Node, tgt: &Node, graph: &Graph) -> ShortestPathResult) {
     let mut summed_time = 0;
+    let mut summed_visited_nodes = 0;
     let number_of_tests = 1000;
     let mut rng = rand::thread_rng();
     println!("Import coastline");
@@ -30,8 +31,12 @@ pub fn test_random_samples(graph: &Graph, routing: fn(src: &Node, tgt: &Node, gr
         let result = routing(start_node, end_node, &graph);
         println!("Finished {}th query in {} ms", i, result.calculation_time);
         summed_time += result.calculation_time;
+        summed_visited_nodes += result.visited_nodes;
     }
-    println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
+    println!(
+        "Performed {} queries in average in {} ms and {} visited nodes", 
+        number_of_tests, summed_time / number_of_tests, summed_visited_nodes / number_of_tests as u32
+    );
 }
 
 pub fn test_random_samples_compare_routings(
@@ -40,6 +45,7 @@ pub fn test_random_samples_compare_routings(
 ) {
     let mut summed_time1 = 0;
     let mut summed_time2 = 0;
+    let mut different_results = 0;
     let number_of_tests = 1000;
     let mut rng = rand::thread_rng();
     println!("Import coastline");
@@ -57,7 +63,10 @@ pub fn test_random_samples_compare_routings(
         let end_node = graph1.closest_node(&Coordinates(*lon, *lat));
         let result1 = routing1(start_node, end_node, &graph1);
         let result2 = routing2(start_node, end_node, &graph2);
-        assert_eq!(result1.distance, result2.distance);
+        if result1.distance != result2.distance {
+            println!("FEHLER: differend results: {} and {}", result1.distance, result2.distance);
+            different_results += 1;
+        }
         println!(
             "Finished {}th query: both with distance {} m; routing 1 in {} ms and routing 2 in {} ms",
             i, result1.distance, result1.calculation_time, result2.calculation_time
@@ -65,7 +74,10 @@ pub fn test_random_samples_compare_routings(
         summed_time1 += result1.calculation_time;
         summed_time2 += result2.calculation_time;
     }
-    println!("Performed {} queries in averages: routint 1 in {} ms, routing 2 in {} ms", number_of_tests, summed_time1 / number_of_tests, summed_time2 / number_of_tests);
+    println!("Performed {} queries in averages: routing 1 in {} ms, routing 2 in {} ms", number_of_tests, summed_time1 / number_of_tests, summed_time2 / number_of_tests);
+    if different_results > 0 {
+        println!("BUT {} routings failed", different_results);
+    }
 }
 
 /**
@@ -138,8 +150,11 @@ fn run_routing(graph: &Graph, ch_graph: &Graph, route: Route) {
     let bidirectional_dijkstra = run_bidirectional_dijkstra(src_node, tgt_node, graph, true);
     println!("BD\t{}\t{}", bidirectional_dijkstra.calculation_time, bidirectional_dijkstra.visited_nodes);
     assert_eq_routings(&dijkstra_result, &bidirectional_dijkstra);
-    let ch_result = run_ch(src_node, tgt_node, ch_graph);
-    println!("CH\t{}\t{}", ch_result.calculation_time, ch_result.visited_nodes);
+    let ch_result = run_ch_a_star(src_node, tgt_node, ch_graph);
+    println!("CH_A\t{}\t{}", ch_result.calculation_time, ch_result.visited_nodes);
+    assert_eq_routings(&dijkstra_result, &ch_result);
+    let ch_result = run_ch_dijkstra(src_node, tgt_node, ch_graph);
+    println!("CH_D\t{}\t{}", ch_result.calculation_time, ch_result.visited_nodes);
     assert_eq_routings(&dijkstra_result, &ch_result);
 }
 

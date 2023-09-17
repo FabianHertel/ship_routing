@@ -1,7 +1,7 @@
 use std::{time::SystemTime, collections::{HashSet, HashMap}, cell::{RefCell, Ref, RefMut}, fs::File, io::{Write, self, BufReader}};
 use graph_lib::{ShortestPathResult, Graph, Node, Edge, file_interface::print_graph_to_file, Coordinates};
 use cli_clipboard;
-use crate::{binary_minheap::BinaryMinHeap, ws_a_star::{ws_a_star, AStartObject, HeuristicalDistances}, bidirectional_dijkstra::run_bidirectional_dijkstra, binary_minheap_map::BinaryMinHeapMap};
+use crate::{binary_minheap::BinaryMinHeap, ws_a_star::{ws_a_star, AStartObject, HeuristicalDistances}, bidirectional_dijkstra::run_bidirectional_dijkstra, binary_minheap_map::BinaryMinHeapMap, bidirectional_a_star::run_bidirectional_a_star};
 
 /**
  * initialize and start new contraction
@@ -238,8 +238,15 @@ fn is_shortcut_needed(graph: &CHGraph, n1: usize, n2: usize, edge_sum: u32, btw_
 /**
  * for the query a bidirectional dijkstra on the upwarded directed graph is run. The upwarded directed graph is the output graph of the preprocessing
  */
-pub fn run_ch(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPathResult {
+pub fn run_ch_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPathResult {
     return run_bidirectional_dijkstra(src_node, tgt_node, graph, false);
+}
+
+/**
+ * for the query a bidirectional dijkstra on the upwarded directed graph is run. The upwarded directed graph is the output graph of the preprocessing
+ */
+pub fn run_ch_a_star(src_node: &Node, tgt_node: &Node, graph: &Graph) -> ShortestPathResult {
+    return run_bidirectional_a_star(src_node, tgt_node, graph);
 }
 
 /**

@@ -3,6 +3,7 @@
 mod dijkstra;
 mod a_star;
 mod bidirectional_dijkstra;
+mod bidirectional_a_star;
 mod binary_minheap;
 mod binary_minheap_map;
 mod ch;
@@ -12,14 +13,14 @@ mod ws_a_star;
 use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file };
 use test_routing::{test_samples, test_random_samples, test_random_samples_compare_routings};
 
-use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{new_ch_precalculations, run_ch, continue_ch_precalculations}, a_star::run_a_star, dijkstra::run_dijkstra};
+use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{new_ch_precalculations, continue_ch_precalculations, run_ch_a_star, run_ch_dijkstra}, a_star::run_a_star, dijkstra::run_dijkstra};
 
 static mut GRAPH: Option<Graph> = None;
 static mut CH_GRAPH: Option<Graph> = None;
 static mut ROUTING: Routing = Routing::CH;
 
 pub enum Routing {
-    DI, BD, ASTAR, CH
+    DI, BD, ASTAR, CH, ChAStar
 }
 
 #[tauri::command]
@@ -40,7 +41,8 @@ fn route(coordinates: [[f32;2];2]) -> Vec<[f32;2]> {
             Routing::DI => run_dijkstra(src_node, tgt_node, GRAPH.as_ref().unwrap()),
             Routing::BD => run_bidirectional_dijkstra(src_node, tgt_node, GRAPH.as_ref().unwrap(), true),
             Routing::ASTAR => run_a_star(src_node, tgt_node, GRAPH.as_ref().unwrap()),
-            Routing::CH => run_ch(src_node, tgt_node, CH_GRAPH.as_ref().unwrap()),
+            Routing::CH => run_ch_dijkstra(src_node, tgt_node, CH_GRAPH.as_ref().unwrap()),
+            Routing::ChAStar => run_ch_a_star(src_node, tgt_node, CH_GRAPH.as_ref().unwrap())
         };
         
         match &dijkstra_result.path {
@@ -66,9 +68,13 @@ fn main() {
     match command {
         Some(command) => {
             match command.to_str() {
-                Some("test_ch") => {
+                Some("test_chd") => {
                     import_ch_graph(&filename);
-                    test_random_samples(unsafe { CH_GRAPH.as_ref().unwrap() }, run_ch);
+                    test_random_samples(unsafe { CH_GRAPH.as_ref().unwrap() }, run_ch_dijkstra);
+                },
+                Some("test_cha") => {
+                    import_ch_graph(&filename);
+                    test_random_samples(unsafe { CH_GRAPH.as_ref().unwrap() }, run_ch_a_star);
                 },
                 Some("test_a*") => {
                     import_basic_graph(&filename);
@@ -82,11 +88,11 @@ fn main() {
                     import_basic_graph(&filename);
                     test_random_samples(unsafe { GRAPH.as_ref().unwrap() }, |a, b, c| run_bidirectional_dijkstra(a, b, c, true));
                 },
-                Some("test_a*_ch") => {
+                Some("test_a*_cha") => {
                     import_ch_graph(&filename);
                     import_basic_graph(&filename);
                     test_random_samples_compare_routings(
-                        unsafe { GRAPH.as_ref().unwrap() }, run_a_star, unsafe {CH_GRAPH.as_ref().unwrap()}, run_ch
+                        unsafe { GRAPH.as_ref().unwrap() }, run_a_star, unsafe {CH_GRAPH.as_ref().unwrap()}, run_ch_a_star
                     );
                 }
                 Some("test_a*_di") => {
@@ -137,8 +143,14 @@ fn main() {
                     println!("Start Leaflet with A* routing");
                     run_tauri();
                 },
-                Some("ch") => unsafe {
+                Some("chd") => unsafe {
                     ROUTING = Routing::CH;
+                    import_ch_graph(&filename);
+                    println!("Start Leaflet with contraction hierarchies routing");
+                    run_tauri();
+                },
+                Some("cha") => unsafe {
+                    ROUTING = Routing::ChAStar;
                     import_ch_graph(&filename);
                     println!("Start Leaflet with contraction hierarchies routing");
                     run_tauri();

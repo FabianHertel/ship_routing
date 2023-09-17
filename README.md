@@ -111,7 +111,7 @@ The _graphname_ (default=´graph´) will load the _graphname_.bin or _graphname_
 #### Execution
 execute ´cargo run -p ship-routing di´ for Dijkstra
 execute ´cargo run -p ship-routing bd´ for bidirectional Dijkstra
-execute ´cargo run -p ship-routing a+´ for A*
+execute ´cargo run -p ship-routing a*´ for A*
 execute ´cargo run -p ship-routing ch´ for Contraction Hierarchies query
 
 or
@@ -121,6 +121,15 @@ execution: run exe file in .\target\debug\ship-routing.exe (wich executes the CH
 
 ### Results
 To test all four routing queries on a given set of challenges, you can run ´cargo run -p ship-routing test´. I got following results (Time in ms):
+Executed by ´cargo run -p ship-routing test_{routing}´ with routing = di|bd|a*|ch
+Or execute ´cargo run -p ship-routing test_a*_{routing}´ with routing = di|ch to compare A* with one of the other. Correctness and speed are considered.
+
+Dijkstra: 9093 ms
+Bidirectional Dijkstra: 4460 ms
+A*: 1716 ms
+Contrachtion Hierarchies: 3594 ms
+
+Some specific examples
 
 Routing from Mediterrian Sea to Red Sea:
 | Query   |      Time      |  Visited nodes |
@@ -163,7 +172,7 @@ BD      |896     |613514
 CH      |949     |1376855
 
 Unfortunately CH can't give always the best results. I explain it so far with mostly following reasons:
-1. The contraction went only up to 78%
+1. The contraction went only up to 82%
 2. Potential of the query to be faster, for example using bidirectional A*
 Even if CH is the fastest, for example for routing 4 (from Atlantic to Indic around Afrika), it visits the most nodes. I am sure this can be optimized by a better query.
 

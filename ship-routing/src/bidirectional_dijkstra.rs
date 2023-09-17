@@ -87,9 +87,9 @@ pub fn run_bidirectional_dijkstra(src_node: &Node, tgt_node: &Node, graph: &Grap
         }
     }
 
-    // return result
+    // build path
     let result_path = match node_id_middle {
-    Some(node_id) => {
+        Some(node_id) => {
             let mut path_forward = dijkstra_forward.build_path(graph, node_id).unwrap();
             let mut path_backward = dijkstra_backward.build_path(graph, node_id).unwrap();
             path_forward.pop(); // otherwise node in the middle is double
