@@ -37,8 +37,9 @@ pub fn run_bidirectional_a_star(src_node: &Node, tgt_node: &Node, graph: &Graph)
         if !forward_finished && !pq_forward.is_empty() {
             let node_id_forward = pq_forward.pop(&heuristic_forward.g_plus_h);
             if heuristic_forward.g_plus_h[node_id_forward] < best_result_so_far {
-                if heuristic_forward.g[node_id_forward] != u32::MAX && heuristic_backward.g[node_id_forward] != u32::MAX {
-                    let possible_result = heuristic_forward.g[node_id_forward] + heuristic_backward.g[node_id_forward];
+                if heuristic_backward.g_plus_h[node_id_forward] != u32::MAX {
+                    let possible_result = heuristic_forward.g_plus_h[node_id_forward] + heuristic_backward.g_plus_h[node_id_forward]
+                        - heuristic_forward.heuristic[node_id_forward] - heuristic_backward.heuristic[node_id_forward];
                     if possible_result < best_result_so_far {
                         best_result_so_far = possible_result;
                         node_id_middle = Some(node_id_forward);
@@ -56,8 +57,9 @@ pub fn run_bidirectional_a_star(src_node: &Node, tgt_node: &Node, graph: &Graph)
         if !backward_finished && !pq_backward.is_empty()  {
             let node_id_backward = pq_backward.pop(&heuristic_backward.g_plus_h);
             if heuristic_backward.g_plus_h[node_id_backward] < best_result_so_far {
-                if heuristic_forward.g[node_id_backward] != u32::MAX && heuristic_backward.g[node_id_backward] != u32::MAX {
-                    let possible_result = heuristic_forward.g[node_id_backward] + heuristic_backward.g[node_id_backward];
+                if heuristic_forward.g_plus_h[node_id_backward] != u32::MAX {
+                    let possible_result = heuristic_forward.g_plus_h[node_id_backward] + heuristic_backward.g_plus_h[node_id_backward]
+                        - heuristic_forward.heuristic[node_id_backward] - heuristic_backward.heuristic[node_id_backward];
                     if possible_result < best_result_so_far {
                         best_result_so_far = possible_result;
                         node_id_middle = Some(node_id_backward);
@@ -108,7 +110,6 @@ fn process_edges(graph: &Graph, visiting_node_id: usize, heuristic_dists: &mut H
 
         // if way over visiting node is the best so far, the neighbour will be updated
         if neighbour_node_dist < heuristic_dists.g_plus_h[edge.tgt] {
-            heuristic_dists.g[edge.tgt] = visiting_node_dist + edge.dist;
             heuristic_dists.g_plus_h[edge.tgt] = neighbour_node_dist;
             heuristic_dists.preds[edge.tgt] = visiting_node_id;
 
@@ -122,7 +123,6 @@ fn process_edges(graph: &Graph, visiting_node_id: usize, heuristic_dists: &mut H
 #[derive(Debug)]
 pub struct HeuristicalDistances {
     g_plus_h: Vec<u32>,
-    g: Vec<u32>,
     preds: Vec<usize>,
     heuristic: Vec<u32>
 }
@@ -130,15 +130,12 @@ pub struct HeuristicalDistances {
 impl HeuristicalDistances {
     /// Creates a new `HeuristicalDistances` instance for given graph size with dist to src 0.0 and else infinity
     fn init(num_nodes: usize, src_id: usize, start_end_dist: u32) -> Self {
-        let mut g = vec![u32::MAX; num_nodes];
         let mut g_plus_h = vec![u32::MAX; num_nodes];
         let mut heuristic = vec![u32::MAX; num_nodes];
         heuristic[src_id] = start_end_dist;
         g_plus_h[src_id] = 0 + start_end_dist;
-        g[src_id] = 0;
         Self {
             g_plus_h,
-            g,
             preds: vec![usize::MAX; num_nodes],
             heuristic
         }
