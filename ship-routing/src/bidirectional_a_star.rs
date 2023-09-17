@@ -29,6 +29,8 @@ pub fn run_bidirectional_a_star(src_node: &Node, tgt_node: &Node, graph: &Graph)
     let mut forward_finished = false;
     let mut backward_finished = false;
 
+    println!("Time for initialization: {} sec", now.elapsed().unwrap().as_secs_f32());
+
     // iterate until in both directions nothing better can be found anymore
     while !forward_finished || !backward_finished {
         // try forward
