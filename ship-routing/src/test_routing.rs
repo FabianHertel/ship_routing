@@ -1,4 +1,4 @@
-use graph_lib::{Graph, Coordinates, ShortestPathResult};
+use graph_lib::{Graph, Coordinates, ShortestPathResult, random_point::random_point_on_sphere};
 
 use crate::{dijkstra::run_dijkstra, a_star::run_a_star, bidirectional_dijkstra::run_bidirectional_dijkstra, ch::run_ch};
 
@@ -8,6 +8,71 @@ struct Route {
     // optimal_route_length: u32,
     // optimal_route_node_count: usize,
     description: String
+}
+
+pub fn test_random_samples_ch(graph: &Graph) {
+    let mut summed_time = 0;
+    let number_of_tests = 1000;
+    let mut rng = rand::thread_rng();
+    for i in 0..number_of_tests {
+        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let start_node = graph.closest_node(&Coordinates(*lon, *lat));
+        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let end_node = graph.closest_node(&Coordinates(*lon, *lat));
+        let result = run_ch(start_node, end_node, &graph);
+        println!("Finished {}th query in {} ms", i, result.calculation_time);
+        summed_time += result.calculation_time;
+    }
+    println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
+}
+
+pub fn test_random_samples_a_star(graph: &Graph) {
+    let mut summed_time = 0;
+    let number_of_tests = 1000;
+    let mut rng = rand::thread_rng();
+    for i in 0..number_of_tests {
+        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let start_node = graph.closest_node(&Coordinates(*lon, *lat));
+        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let end_node = graph.closest_node(&Coordinates(*lon, *lat));
+        let result = run_a_star(start_node, end_node, &graph);
+        println!("Finished {}th query in {} ms", i, result.calculation_time);
+        summed_time += result.calculation_time;
+    }
+    println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
+}
+
+
+pub fn test_random_samples_bd(graph: &Graph) {
+    let mut summed_time = 0;
+    let number_of_tests = 1000;
+    let mut rng = rand::thread_rng();
+    for i in 0..number_of_tests {
+        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let start_node = graph.closest_node(&Coordinates(*lon, *lat));
+        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let end_node = graph.closest_node(&Coordinates(*lon, *lat));
+        let result = run_bidirectional_dijkstra(start_node, end_node, &graph, true);
+        println!("Finished {}th query in {} ms", i, result.calculation_time);
+        summed_time += result.calculation_time;
+    }
+    println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
+}
+
+pub fn test_random_samples_dijkstra(graph: &Graph) {
+    let mut summed_time = 0;
+    let number_of_tests = 1000;
+    let mut rng = rand::thread_rng();
+    for i in 0..number_of_tests {
+        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let start_node = graph.closest_node(&Coordinates(*lon, *lat));
+        let (lon, lat) = &random_point_on_sphere(&mut rng);
+        let end_node = graph.closest_node(&Coordinates(*lon, *lat));
+        let result = run_dijkstra(start_node, end_node, &graph);
+        println!("Finished {}th query in {} ms", i, result.calculation_time);
+        summed_time += result.calculation_time;
+    }
+    println!("Performed {} queries in average in {} ms", number_of_tests, summed_time / number_of_tests);
 }
 
 /**

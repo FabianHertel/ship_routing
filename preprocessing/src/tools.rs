@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use graph_lib::{Coordinates, Graph, file_interface::print_graph_to_file};
 
 /**
- * Extract black sea as a subgraph of the whole. Done by deep search of a point in the center of Black Sea.
+ * Extract black sea as a subgraph of the whole. Done by deep search of a point in the center of Black Sea, so only working if Black Sea is disconnected to the rest.
  * Used to display a part of the graph and to test routing methods on a smaller problem
  */
 pub fn extract_black_sea(graph: &Graph) {
@@ -12,7 +12,7 @@ pub fn extract_black_sea(graph: &Graph) {
     let mut nodes_to_check: Vec<usize> = graph.get_outgoing_edges(node_in_black_sea.id).to_vec().iter().map(|e| e.tgt).collect();
     let mut found_nodes: HashSet<usize> = nodes_to_check.clone().into_iter().collect();
 
-    // deep search
+    println!("Start deep search");
     while nodes_to_check.len() > 1 {
         let node = nodes_to_check.pop().unwrap();
         for edge in graph.get_outgoing_edges(node) {

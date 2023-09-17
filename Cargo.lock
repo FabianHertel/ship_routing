@@ -1409,6 +1409,9 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "cli-clipboard",
+ "lombok",
+ "rand 0.8.5",
+ "rayon",
  "serde",
 ]
 
@@ -2491,7 +2494,6 @@ dependencies = [
  "actix-web",
  "geojson",
  "graph_lib",
- "lombok",
  "osmpbf",
  "rand 0.8.5",
  "rayon",

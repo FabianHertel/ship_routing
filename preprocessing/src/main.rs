@@ -1,17 +1,16 @@
 use std::error::Error;
 use std::time::SystemTime;
 use graph_lib::file_interface::{print_graph_to_file, import_graph_from_file};
+use graph_lib::island::read_geojsons;
+use graph_lib::test_polygon_test::static_polygon_tests;
 use regex::Regex;
 
 mod import_pbf;
 mod generate_graph;
-mod island;
-mod test_polygon_test;
 mod tools;
 
 use crate::import_pbf::{import_pbf, print_geojson};
-use crate::generate_graph::{generate_graph, read_geojsons};
-use crate::test_polygon_test::static_polygon_tests;
+use crate::generate_graph::generate_graph;
 use crate::tools::extract_black_sea;
 
 #[actix_web::main]
@@ -60,7 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             println!("Finished writing: {} sek", now.elapsed()?.as_secs());
         }
         Some("black_sea") => {
-            println!("Importing fmi file...");
+            println!("Importing graph from file...");
             let filename = param_to_string(2, Some("graph"), None)?;
             let graph = import_graph_from_file(&filename).expect("Error importing Graph");
             extract_black_sea(&graph);

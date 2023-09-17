@@ -1,4 +1,7 @@
 pub mod file_interface;
+pub mod random_point;
+pub mod island;
+pub mod test_polygon_test;
 
 use std::{f32::consts::PI, fmt::{Display, Formatter, Debug}, collections::HashMap};
 use serde::{Serialize, Deserialize};

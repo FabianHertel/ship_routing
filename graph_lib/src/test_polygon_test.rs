@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use rand::{rngs::StdRng, SeedableRng};
 
-use crate::{generate_graph::{read_geojsons, point_on_land_test, random_point_on_sphere}, island::{Island, GRID_DIVISIONS, GridCell}};
+use crate::{island::{Island, GRID_DIVISIONS, GridCell, read_geojsons}, random_point::{point_on_land_test, random_point_on_sphere}};
 
 /**
  * A function to test the some static point in polygon tests
@@ -51,26 +51,22 @@ pub fn static_polygon_tests(import_prefix: &str) {
     let mut rng: StdRng = StdRng::seed_from_u64(0);     // seed in contrast to real to have comparable conditions
     let mut lat: f32;
     let mut lon: f32;
-    let mut norm: f32;
     let mut counter = 0;
     let mut slow_points: Vec<(u128, f32, f32, i32)> = vec![];
     let mut points_in_water: Vec<[f32; 2]> = vec![];
     let mut points_on_land: Vec<[f32; 2]> = vec![];
 
     while counter < 1000 {
-        (lon, lat, norm) = random_point_on_sphere(&mut rng);
-
-        if norm <= 1.0 {
-            let now = SystemTime::now();
-            if !point_on_land_test(lon, lat, &island_grid) {
-                points_in_water.push([lon, lat]);
-            } else {
-                points_on_land.push([lon, lat])
-            }
-            let elapsed_time = now.elapsed().unwrap().as_millis();
-            if elapsed_time > 2 {slow_points.push((elapsed_time, lon, lat, counter));}
-            counter += 1;
+        (lon, lat) = random_point_on_sphere(&mut rng);
+        let now = SystemTime::now();
+        if !point_on_land_test(lon, lat, &island_grid) {
+            points_in_water.push([lon, lat]);
+        } else {
+            points_on_land.push([lon, lat])
         }
+        let elapsed_time = now.elapsed().unwrap().as_millis();
+        if elapsed_time > 2 {slow_points.push((elapsed_time, lon, lat, counter));}
+        counter += 1;
     }
     println!("Finished 1000 points in {} millis", now.elapsed().unwrap().as_millis());
     // println!("In water: {:?}", points_in_water);

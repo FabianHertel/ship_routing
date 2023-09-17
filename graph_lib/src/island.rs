@@ -1,9 +1,9 @@
-use std::collections::HashSet;
-
-use graph_lib::Coordinates;
+use std::{collections::HashSet, time::SystemTime, fs};
 use lombok::Getter;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use crate::{Coordinates, random_point::point_in_polygon_test};
 
-use crate::generate_graph::{MOST_SOUTHERN_LAT_IN_SEA, point_in_polygon_test};
+pub const MOST_SOUTHERN_LAT_IN_SEA: f32 = -78.02;
 
 // grid order: from north to south, from east to west
 // so always from high coordinate values to small
@@ -174,4 +174,54 @@ fn max(v1: f32, v2: f32) -> f32 {
     } else {
         return v2;
     }
+}
+
+
+/**
+ * read continents and islands from geojsons in parallel and sort it from big to small;
+ * islands splitted in different files to speedup reading and writing
+ */
+pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f32>>> {
+    let mut coastlines: Vec<Vec<Vec<f32>>> =  ["continents", "big_islands", "islands", "small_islands"]
+        .par_iter()
+        .map(|filename| {
+            let now = SystemTime::now();
+            let filepath = format!("./data/geojson/{}.json", prefix.to_owned() + "_" + filename);
+            let geojson_str = fs::read_to_string(&filepath)
+                .expect(&format!("Unable to read JSON file {}", &filepath));
+            let geojson_str = &geojson_str[18..];
+            let coastlines_part: Vec<Vec<Vec<f32>>> = geojson_str.split("[[").into_iter().map(|island_str| {
+                if island_str.len() > 5 {
+                    island_str.split('[').into_iter().map(|coordinates| {
+                        let mut coordinates_split = coordinates.split(&[',', ']', ' '][..]);
+                        let mut coordinates = vec![];
+                        while coordinates.len() < 2 {
+                            let number = coordinates_split.nth(0);
+                            if number != Some("") {
+                                coordinates.push(number.unwrap().parse::<f32>().unwrap())
+                            }
+                        }
+                        return coordinates;
+                    }).collect()
+                } else {
+                    vec![]
+                }
+            }).collect();
+            println!(
+                "Parsing {} finished after {} sek",
+                filepath,
+                now.elapsed().unwrap().as_secs()
+            );
+            return coastlines_part;
+        })
+        .reduce(
+            || vec![],
+            |mut a, mut b| {
+                a.append(&mut b);
+                return a;
+            },
+        );
+
+        coastlines.sort_by(|a, b| b.len().cmp(&a.len()));
+        return coastlines;
 }

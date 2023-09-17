@@ -1,12 +1,7 @@
-use std::{time::SystemTime, fs::{self}, error::Error, io::{Write, stdout, self}, collections::HashMap};
-use rayon::prelude::*;
-use rand::Rng;
+use std::{time::SystemTime, error::Error, io::{Write, stdout, self}, collections::HashMap};
 
-use graph_lib::{Coordinates, Node, Edge, file_interface::print_graph_to_file, distance_between};
+use graph_lib::{Coordinates, Node, Edge, file_interface::print_graph_to_file, distance_between, island::{GridCell, read_geojsons, GRID_DIVISIONS, Island}, random_point::random_point_in_water};
 
-use crate::island::{Island, GRID_DIVISIONS, grid_cell_of_coordinate, GridCell};
-
-pub const MOST_SOUTHERN_LAT_IN_SEA: f32 = -78.02;
 
 pub fn generate_graph(filename_out: &str, import_prefix: &str) -> Result<(), Box<dyn Error>> {
     const NUMBER_OF_NODES: u32 = 4000000;
@@ -41,188 +36,27 @@ pub fn generate_graph(filename_out: &str, import_prefix: &str) -> Result<(), Box
     Ok(())
 }
 
-/**
- * read continents and islands from geojsons in parallel and sort it from big to small;
- * islands splitted in different files to speedup reading and writing
- */
-pub fn read_geojsons(prefix: &str) -> Vec<Vec<Vec<f32>>> {
-    let mut coastlines: Vec<Vec<Vec<f32>>> =  ["continents", "big_islands", "islands", "small_islands"]
-        .par_iter()
-        .map(|filename| {
-            let now = SystemTime::now();
-            let filepath = format!("./data/geojson/{}.json", prefix.to_owned() + "_" + filename);
-            let geojson_str = fs::read_to_string(&filepath)
-                .expect(&format!("Unable to read JSON file {}", &filepath));
-            let geojson_str = &geojson_str[18..];
-            let coastlines_part: Vec<Vec<Vec<f32>>> = geojson_str.split("[[").into_iter().map(|island_str| {
-                if island_str.len() > 5 {
-                    island_str.split('[').into_iter().map(|coordinates| {
-                        let mut coordinates_split = coordinates.split(&[',', ']', ' '][..]);
-                        let mut coordinates = vec![];
-                        while coordinates.len() < 2 {
-                            let number = coordinates_split.nth(0);
-                            if number != Some("") {
-                                coordinates.push(number.unwrap().parse::<f32>().unwrap())
-                            }
-                        }
-                        return coordinates;
-                    }).collect()
-                } else {
-                    vec![]
-                }
-            }).collect();
-            println!(
-                "Parsing {} finished after {} sek",
-                filepath,
-                now.elapsed().unwrap().as_secs()
-            );
-            return coastlines_part;
-        })
-        .reduce(
-            || vec![],
-            |mut a, mut b| {
-                a.append(&mut b);
-                return a;
-            },
-        );
-
-        coastlines.sort_by(|a, b| b.len().cmp(&a.len()));
-        return coastlines;
-}
-
-/**
- * This method will check, the given point is inside water.
- * If so, true will be returned.
- * This will be done by checking how many coastlines will be crossed going to the northpole.
- * We consider the earth as a 2D map with (x,y) = (lon, lat).
- * So the northpole has the same width as the equator, which is fine for this algorithm since coastlines are short.
- * According to our measurements of the coastlines with the table from https://dataverse.jpl.nasa.gov/dataset.xhtml?persistentId=hdl:2014/41271 there is a maximum error of single meters.
- * From the given point we check how many coastlines are crossed going straight north.
- * If it is even, we are in the sea. If odd, we are on land.
- * Note: Antartica avoids -180 to 180 edge, so coastline goes to the southpole and around it.
- */
-pub fn point_on_land_test(lon: f32, lat: f32, island_grid: &Vec<Vec<GridCell>>) -> bool {
-    // no point in water is more south than -78.02
-    if lat < MOST_SOUTHERN_LAT_IN_SEA {return true}
-
-    let [grid_row, cell_in_row] = grid_cell_of_coordinate(lon, lat);
-
-    // println!("(lon, lat): {},{} makes {},{}", lon, lat, grid_row, cell_in_row);
-    match island_grid[grid_row][cell_in_row] {
-        GridCell::WATER => false,
-        GridCell::LAND(_) => true,
-        GridCell::ISLANDS(ref islands) => {
-            for island in islands {
-                if point_in_polygon_test(lon, lat, island) {
-                    return true;
-                }
-            }
-            return false;
-        },
-    }
-}
-
-#[inline]
-pub fn point_in_polygon_test(lon: f32, lat: f32, island: &Island) -> bool {
-    // println!("Island in cell: {}", island);
-    let in_bounding_box = lon > island.get_bounding_box()[0][0]
-    && lon < island.get_bounding_box()[0][1]
-    && lat > island.get_bounding_box()[1][0]
-    && lat < island.get_bounding_box()[1][1];
-    if in_bounding_box {
-        // println!("Island center: {}; max_dist_from_ref: {}; point distance: {}, coastline_points: {}", island, island.get_max_dist_from_ref(), &island.get_reference_points()[0].distance_to(&Coordinates(lon, lat)), island.get_coastline().len());
-        let mut in_water = false;
-        let polygon = &island.get_coastline();
-        if island.get_lon_distribution().len() > 0 {
-            let index_in_lon_distr = ((lon - island.get_bounding_box()[0][0])
-                / island.get_lon_distribution_distance())
-                .floor() as usize;
-            let mut last_point_i: usize = 0;
-            // println!("Checking {} edges", &island.get_lon_distribution()[index_in_lon_distr].len());
-
-            // check only edges which have one end in the same vertical layer
-            for point_i in &island.get_lon_distribution()[index_in_lon_distr] {
-                if *point_i != last_point_i + 1 && *point_i > 0 {
-                    // check edge before only if not already checked
-                    let (start, end) = (&polygon[point_i - 1], &polygon[*point_i]);
-                    if line_cross_check(start, end, lon, lat) {in_water = !in_water}
-                }
-                // check edge after always if point is not the last one
-                if *point_i < island.get_coastline().len() - 1 {
-                    let (start, end) = (&polygon[*point_i], &polygon[point_i + 1]);
-                    if line_cross_check(start, end, lon, lat) {in_water = !in_water}
-                }
-                last_point_i = *point_i;
-            }
-        } else {
-            // println!("No lon distibution: Checking {} edges", &island.get_coastline().len());
-            for j in 1..polygon.len() {
-                // ignore first point in polygon, because first and last will be the same
-                let (start, end) = (&polygon[j - 1], &polygon[j]);
-                if line_cross_check(start, end, lon, lat) {in_water = !in_water}
-            }
-        }
-        if in_water {
-            return true;
-        }
-    }
-    return false;
-}
-
-/**
- * checks if point with lon lat crosses edge between start and end by going north
- */
-#[inline]
-fn line_cross_check(start: &Coordinates, end: &Coordinates, lon: f32, lat: f32) -> bool {
-    if (start.0 > lon) != (end.0 > lon) {
-        // check if given lon of point is between start and end point of edge
-        if (start.1 > lat) && (end.1 > lat) {
-            // if both start and end point are north, the going north will cross
-            // println!("Line crossed: {}; {}", start, end);
-            return true;
-        } else if (start.1 > lat) || (end.1 > lat) {
-            // if one of start and end point are south, we have to check... (happens rarely for coastline)
-            let slope = (lat - start.1) * (end.0 - start.0)
-                - (end.1 - start.1) * (lon - start.0);
-            if (slope < 0.0) != (end.0 < start.0) {
-                // println!("Line crossed (rare case!)");
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 fn generate_random_points_in_ocean(island_grid: &Vec<Vec<GridCell>>, number_of_points: u32) -> Vec<Vec<Vec<Node>>> {
     let mut grid: Vec<Vec<Vec<Node>>> = vec![vec![Vec::new(); 180]; 360];
     let mut lat: f32;
     let mut lon: f32;
-    let mut norm: f32;
     let mut new_node: Node;
     let mut rng = rand::thread_rng();
     let mut counter = 0;
 
     while counter < number_of_points {
         // first we generate just a uniformly distributed random 3D vectors
-        (lon, lat, norm) = random_point_on_sphere(&mut rng);
+        (lon, lat) = random_point_in_water(&mut rng, island_grid);
 
-        // if its length (=norm) <= 1, then it's in the earth ball; if not, we ignore the point
-        if norm <= 1.0 {
-            // so we have only points which are uniformly distributed vectors in the volume of the earth here
-            // we ignore no the length, so map all these vectors to length 1, which means to the earth surface
-            if !point_on_land_test(lon, lat, island_grid) {
-                new_node = Node { id: 0, lat, lon };
-
-                grid[(lon + 179.99).floor() as usize][(lat + 89.99).floor() as usize]
-                    .push(new_node);
-                counter = counter + 1;
-                if counter % 1000 == 0 {
-                    print!("\rGenerating... {}/{} points", counter, number_of_points);
-                    stdout().flush().unwrap();
-                }
-                //print!("[{},{}],", lon, lat);
-            }
+        new_node = Node { id: 0, lat, lon };
+        grid[(lon + 179.99).floor() as usize][(lat + 89.99).floor() as usize]
+            .push(new_node);
+        counter = counter + 1;
+        if counter % 1000 == 0 {
+            print!("\rGenerating... {}/{} points", counter, number_of_points);
+            stdout().flush().unwrap();
         }
+        //print!("[{},{}],", lon, lat);
     }
     println!("");
     
@@ -351,30 +185,4 @@ fn connect_graph(mut graph_grid: Vec<Vec<Vec<Node>>>) -> (Vec<Node>, Vec<Edge>) 
 
     // println!("");
     return (points, final_edges);
-}
-
-/**
- * generates a random 3D vector, returns in lat, lon and length
- */
-#[inline]
-pub fn random_point_on_sphere<R: Rng + ?Sized>(rng: &mut R) -> (f32, f32, f32) {
-    let mut x: f32 = 0.0;
-    let mut y: f32 = 0.0;
-    let mut z: f32 = 0.0;
-
-    while ((x * x + y * y + z * z).sqrt()) < 0.001 {
-        x = rng.gen_range(-1.0..1.0);
-        y = rng.gen_range(-1.0..1.0);
-        z = rng.gen_range(-1.0..1.0);
-    }
-    let norm = (x * x + y * y + z * z).sqrt();
-
-    x = x / norm;
-    y = y / norm;
-    z = z / norm;
-
-    let lat = z.asin().to_degrees(); // asin(Z/R)
-    let lon = y.atan2(x).to_degrees(); // atan2(y,x)
-
-    return (lon, lat, norm);
 }

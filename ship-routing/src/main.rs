@@ -10,7 +10,7 @@ mod test_routing;
 mod ws_a_star;
 
 use graph_lib::{Coordinates, Graph, file_interface::import_graph_from_file };
-use test_routing::test_samples;
+use test_routing::{test_samples, test_random_samples_ch, test_random_samples_a_star, test_random_samples_dijkstra, test_random_samples_bd};
 
 use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{new_ch_precalculations, run_ch, continue_ch_precalculations}, a_star::run_a_star, dijkstra::run_dijkstra};
 
@@ -66,7 +66,23 @@ fn main() {
     match command {
         Some(command) => {
             match command.to_str() {
-                Some("test") => {
+                Some("test_ch") => {
+                    import_ch_graph(&filename);
+                    test_random_samples_ch(unsafe { CH_GRAPH.as_ref().unwrap() });
+                },
+                Some("test_a*") => {
+                    import_basic_graph(&filename);
+                    test_random_samples_a_star(unsafe { GRAPH.as_ref().unwrap() });
+                },
+                Some("test_di") => {
+                    import_basic_graph(&filename);
+                    test_random_samples_dijkstra(unsafe { GRAPH.as_ref().unwrap() });
+                },
+                Some("test_bd") => {
+                    import_basic_graph(&filename);
+                    test_random_samples_bd(unsafe { GRAPH.as_ref().unwrap() });
+                },
+                Some("test_static") => {
                     import_basic_graph(&filename);
                     import_ch_graph(&filename);
                     test_samples(unsafe { GRAPH.as_ref().unwrap() }, unsafe { CH_GRAPH.as_ref().unwrap()})
