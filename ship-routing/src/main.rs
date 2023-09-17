@@ -17,7 +17,7 @@ use crate::{bidirectional_dijkstra::run_bidirectional_dijkstra, ch::{new_ch_prec
 
 static mut GRAPH: Option<Graph> = None;
 static mut CH_GRAPH: Option<Graph> = None;
-static mut ROUTING: Routing = Routing::CH;
+static mut ROUTING: Routing = Routing::ChAStar;
 
 pub enum Routing {
     DI, BD, ASTAR, CH, ChAStar

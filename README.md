@@ -178,7 +178,7 @@ CH_A    |746     |16573
 CH_D      |949     |1376855
 
 So far CH with A* is not better then just A*. There are some reasons to get more performance:
-1. CH with A* query looses much of time in the initialization, it has to initialize 8 vectors of length 4000000
+1. CH with A* query looses much of time in the initialization, it has to initialize 8 vectors of length 4000000; This takes on my machine about 700ms
 2. The contraction went only up to 82%
 So the results can be optimized by more preprocessing time and ways to reduce initalization time of the query.
 
